@@ -1,0 +1,59 @@
+name: figus
+description: "Gerencie sua coleção de figurinhas — Copa do Mundo 2026 e mais."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Routing
+  go_router: ^14.2.7
+
+  # Database
+  drift: ^2.20.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # UI
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+
+  # Utilities
+  intl: ^0.19.0
+  shared_preferences: ^2.3.2
+  uuid: ^4.5.0
+  collection: ^1.18.0
+
+  # Web support for drift (SQLite via WASM)
+  drift_flutter: ^0.2.4
+  # NOTE: heavy plugins (camera, mlkit, share_plus, file_picker) come in Noite 2
+  # when OCR and import features land. Keeping pubspec light keeps web/desktop
+  # builds running today.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.13
+  riverpod_generator: ^2.4.3
+  custom_lint: ^0.6.7
+  riverpod_lint: ^2.3.13
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/seeds/
