@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/album/album_page.dart';
-import 'features/crafting/forge_page.dart';
+import 'features/duplicates/duplicates_page.dart';
 import 'features/import/figuritas_import_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/profiles/profiles_page.dart';
@@ -39,13 +39,13 @@ class FigusApp extends ConsumerWidget {
           builder: (_, __, child) => RootShell(child: child),
           routes: [
             GoRoute(path: '/', builder: (_, __) => const AlbumPage()),
-            GoRoute(path: '/forge', builder: (_, __) => const ForgePage()),
-            GoRoute(path: '/scan', builder: (_, __) => const ScanPage()),
+            GoRoute(path: '/duplicates', builder: (_, __) => const DuplicatesPage()),
             GoRoute(path: '/trades', builder: (_, __) => const TradesPage()),
             GoRoute(path: '/you', builder: (_, __) => const YouPage()),
-            GoRoute(path: '/progress', builder: (_, __) => const StatsPage()),
           ],
         ),
+        GoRoute(path: '/scan', builder: (_, __) => const ScanPage()),
+        GoRoute(path: '/progress', builder: (_, __) => const StatsPage()),
         GoRoute(path: '/profiles', builder: (_, __) => const ProfilesPage()),
         GoRoute(path: '/import', builder: (_, __) => const FiguritasImportPage()),
         GoRoute(path: '/upgrade', builder: (_, __) => const UpgradePage()),
@@ -66,11 +66,9 @@ class RootShell extends StatelessWidget {
   final Widget child;
   const RootShell({super.key, required this.child});
 
-  // 5-item nav with center FAB for Scan — distinct from Figuritas' flat 4-tabs.
   static const _navTabs = <_NavItem>[
     _NavItem('/', Icons.grid_view_rounded, 'Coleção'),
-    _NavItem('/forge', Icons.auto_awesome_rounded, 'Forjar'),
-    _NavItem('/scan', Icons.qr_code_scanner_rounded, '', isCenterFab: true),
+    _NavItem('/duplicates', Icons.copy_all_rounded, 'Repetidas'),
     _NavItem('/trades', Icons.swap_horiz_rounded, 'Trocas'),
     _NavItem('/you', Icons.person_rounded, 'Você'),
   ];
@@ -81,41 +79,14 @@ class RootShell extends StatelessWidget {
     final activeIndex = _navTabs.indexWhere((t) => loc == t.path);
     return Scaffold(
       body: child,
-      extendBody: true,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: SizedBox(
-        height: 64,
-        width: 64,
-        child: FloatingActionButton(
-          heroTag: 'fab-scan',
-          backgroundColor: AppTheme.seed,
-          foregroundColor: Colors.white,
-          shape: const CircleBorder(),
-          elevation: 6,
-          onPressed: () => context.go('/scan'),
-          child: const Icon(Icons.qr_code_scanner_rounded, size: 30),
-        ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        height: 68,
-        padding: EdgeInsets.zero,
-        notchMargin: 8,
-        shape: const CircularNotchedRectangle(),
-        color: Theme.of(context).colorScheme.surface,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            for (var i = 0; i < _navTabs.length; i++)
-              if (_navTabs[i].isCenterFab)
-                const SizedBox(width: 60)
-              else
-                _NavButton(
-                  item: _navTabs[i],
-                  active: i == activeIndex,
-                  onTap: () => context.go(_navTabs[i].path),
-                ),
-          ],
-        ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: activeIndex < 0 ? 0 : activeIndex,
+        onTap: (i) => context.go(_navTabs[i].path),
+        type: BottomNavigationBarType.fixed,
+        items: [
+          for (final t in _navTabs)
+            BottomNavigationBarItem(icon: Icon(t.icon), label: t.label),
+        ],
       ),
     );
   }
@@ -125,36 +96,5 @@ class _NavItem {
   final String path;
   final IconData icon;
   final String label;
-  final bool isCenterFab;
-  const _NavItem(this.path, this.icon, this.label, {this.isCenterFab = false});
-}
-
-class _NavButton extends StatelessWidget {
-  final _NavItem item;
-  final bool active;
-  final VoidCallback onTap;
-  const _NavButton({required this.item, required this.active, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? AppTheme.seed : AppTheme.inkSoft;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(item.icon, color: color, size: 24),
-            const SizedBox(height: 2),
-            Text(item.label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                )),
-          ],
-        ),
-      ),
-    );
-  }
+  const _NavItem(this.path, this.icon, this.label);
 }

@@ -1,0 +1,252 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../data/providers.dart';
+import '../../data/repos/album_repo.dart';
+import '../../domain/models/album_view_models.dart';
+import '../share/share_service.dart';
+
+/// Dedicated page for the user's duplicates — what they take to trades.
+/// Grouped by nation, each item shows quantity and lets you remove one with a
+/// single tap (long-press in the Coleção page also works).
+class DuplicatesPage extends ConsumerWidget {
+  const DuplicatesPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sectionsAsync = ref.watch(_sectionsProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Repetidas'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded),
+            tooltip: 'Compartilhar lista',
+            onPressed: () => _share(context, ref),
+          ),
+        ],
+      ),
+      body: sectionsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Erro: $e')),
+        data: (sections) {
+          if (sections.isEmpty) {
+            return const _EmptyState();
+          }
+          final totalCopies = sections
+              .expand((s) => s.stickers)
+              .fold<int>(0, (sum, s) => sum + s.duplicateCount);
+          return Column(
+            children: [
+              _Header(
+                uniqueCount: sections.fold(0, (sum, s) => sum + s.stickers.length),
+                totalCopies: totalCopies,
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: sections.length,
+                  itemBuilder: (_, i) => _NationGroup(
+                    section: sections[i],
+                    onRemoveOne: (sticker) async {
+                      HapticFeedback.lightImpact();
+                      await ref.read(collectionRepoProvider).removeSticker(sticker.id);
+                      ref.read(collectionVersionProvider.notifier).state++;
+                    },
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _share(BuildContext context, WidgetRef ref) async {
+    final sections = await ref.read(albumRepoProvider).loadSections(filter: AlbumFilter.duplicates);
+    final flat = sections.expand((s) => s.stickers).toList();
+    if (flat.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sem repetidas pra compartilhar.')),
+      );
+      return;
+    }
+    await ShareService.shareTextList(
+      title: 'Tenho essas repetidas pra trocar:',
+      stickers: flat,
+    );
+  }
+}
+
+final _sectionsProvider = FutureProvider.autoDispose((ref) async {
+  ref.watch(collectionVersionProvider);
+  return ref.watch(albumRepoProvider).loadSections(filter: AlbumFilter.duplicates);
+});
+
+class _Header extends StatelessWidget {
+  final int uniqueCount;
+  final int totalCopies;
+  const _Header({required this.uniqueCount, required this.totalCopies});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.seed.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.copy_all_rounded, color: AppTheme.seed),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(color: AppTheme.ink, fontSize: 14),
+                children: [
+                  TextSpan(
+                    text: '$uniqueCount ',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const TextSpan(text: 'figurinhas diferentes  ·  '),
+                  TextSpan(
+                    text: '$totalCopies ',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                  const TextSpan(text: 'cópias no total'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NationGroup extends StatelessWidget {
+  final AlbumSection section;
+  final void Function(StickerView) onRemoveOne;
+  const _NationGroup({required this.section, required this.onRemoveOne});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (section.flag != null)
+                  Text(section.flag!, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    section.title,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in section.stickers)
+                  _DuplicateChip(sticker: s, onRemoveOne: () => onRemoveOne(s)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DuplicateChip extends StatelessWidget {
+  final StickerView sticker;
+  final VoidCallback onRemoveOne;
+
+  const _DuplicateChip({required this.sticker, required this.onRemoveOne});
+
+  @override
+  Widget build(BuildContext context) {
+    final num = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
+    return Material(
+      color: AppTheme.seed.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onRemoveOne,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('#$num',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: AppTheme.seed,
+                  )),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.seed,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '×${sticker.duplicateCount}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.remove_circle_outline_rounded,
+                  size: 18, color: AppTheme.inkSoft.withValues(alpha: 0.7)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_rounded, size: 72, color: AppTheme.slot),
+          SizedBox(height: 16),
+          Text('Nenhuma repetida ainda',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          SizedBox(height: 8),
+          Text(
+            'Quando você abrir um pacote e tirar uma figurinha que já tem, ela vai aparecer aqui.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.inkSoft),
+          ),
+        ],
+      ),
+    );
+  }
+}

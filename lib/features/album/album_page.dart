@@ -39,6 +39,11 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
         title: const Text('Coleção'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            tooltip: 'Escanear página',
+            onPressed: () => context.push('/scan'),
+          ),
+          IconButton(
             icon: const Icon(Icons.insights_rounded),
             tooltip: 'Progresso',
             onPressed: () => context.push('/progress'),
