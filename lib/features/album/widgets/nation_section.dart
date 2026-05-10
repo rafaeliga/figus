@@ -96,14 +96,22 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
           crossAxisSpacing: 10,
           childAspectRatio: 3 / 4,
         ),
-        itemBuilder: (_, i) => _card(ordered[i]),
+        itemBuilder: (_, i) {
+          final st = ordered[i];
+          return StickerCard(
+            key: ValueKey('sticker-${st.id}'),
+            sticker: st,
+            onTap: () => widget.onTap(st),
+            onLongPress: () => widget.onLongPress(st),
+          );
+        },
       );
     }
 
     // Nation page mimicking the physical Panini album:
-    //   - sticker #1 (crest)      → 2×2 (top-left)
-    //   - sticker #2 (team photo) → 2×2 (top-right)
-    //   - stickers #3..#20         → 1×1 each, filling the grid in sequence
+    //   - sticker #1 (crest)      → 1×1 portrait (same size as players)
+    //   - sticker #2 (team photo) → 2×1 landscape (twice as wide as a player)
+    //   - stickers #3..#20         → 1×1 portrait
     return StaggeredGrid.count(
       crossAxisCount: 4,
       mainAxisSpacing: 10,
@@ -111,29 +119,19 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
       children: [
         for (final st in ordered)
           StaggeredGridTile.count(
-            crossAxisCellCount: _cellSpan(st),
-            mainAxisCellCount: _cellSpan(st),
-            child: _card(st, isBig: _cellSpan(st) > 1),
+            crossAxisCellCount: st.type == 'team_photo' ? 2 : 1,
+            mainAxisCellCount: st.type == 'team_photo' ? 0.75 : 1,
+            // mainAxis 0.75 with crossAxis=2 → tile is twice as wide and 3/4
+            // as tall as a 1×1, giving an ~8:3 landscape look.
+            child: StickerCard(
+              key: ValueKey('sticker-${st.id}'),
+              sticker: st,
+              onTap: () => widget.onTap(st),
+              onLongPress: () => widget.onLongPress(st),
+              aspectRatio: st.type == 'team_photo' ? 8 / 3 : 3 / 4,
+            ),
           ),
       ],
-    );
-  }
-
-  int _cellSpan(StickerView st) {
-    // crest and team_photo span 2x2; everything else 1x1.
-    if (st.type == 'crest' || st.type == 'team_photo') return 2;
-    return 1;
-  }
-
-  Widget _card(StickerView st, {bool isBig = false}) {
-    return StickerCard(
-      key: ValueKey('sticker-${st.id}'),
-      sticker: st,
-      onTap: () => widget.onTap(st),
-      onLongPress: () => widget.onLongPress(st),
-      // For 2x2 tiles inside a staggered grid, the height/width = 2*cell + spacing,
-      // so the natural aspect is closer to 1:1 than 3:4.
-      aspectRatio: isBig ? 1.0 : 3 / 4,
     );
   }
 }
