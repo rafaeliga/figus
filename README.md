@@ -2,6 +2,8 @@
 
 App pessoal de gestão de figurinhas — começando pelo álbum **Panini FIFA World Cup 2026**.
 
+📲 **APK Android pronto:** [Release v0.1.0-alpha](https://github.com/sampaiodaniel/figus/releases/tag/v0.1.0-alpha) — baixe direto no celular e instale (precisa permitir "fontes desconhecidas").
+
 > **Status:** alpha noturno. MVP da Noite 1 = núcleo funcional (980 figurinhas, marcação tem/falta/repetida, filtros, estatísticas, multi-perfil família, onboarding). OCR completo, importação Figuritas, share WhatsApp, sync e crafting chegam nas próximas noites conforme o plano em `~/.claude/plans/quero-fazer-um-app-parsed-hartmanis.md`.
 
 ## Como rodar (TESTE RÁPIDO — Chrome)
