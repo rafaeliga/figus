@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
@@ -35,8 +36,13 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Meu Álbum'),
+        title: const Text('Coleção'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.insights_rounded),
+            tooltip: 'Progresso',
+            onPressed: () => context.push('/progress'),
+          ),
           IconButton(
             icon: const Icon(Icons.ios_share_rounded),
             tooltip: 'Compartilhar',

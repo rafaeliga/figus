@@ -10,9 +10,10 @@ import 'features/import/figuritas_import_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/profiles/profiles_page.dart';
 import 'features/scan/scan_page.dart';
-import 'features/settings/settings_page.dart';
 import 'features/settings/upgrade_page.dart';
 import 'features/stats/stats_page.dart';
+import 'features/trades/trades_page.dart';
+import 'features/you/you_page.dart';
 
 final onboardedProvider = FutureProvider<bool>((_) async {
   final prefs = await SharedPreferences.getInstance();
@@ -38,14 +39,15 @@ class FigusApp extends ConsumerWidget {
           builder: (_, __, child) => RootShell(child: child),
           routes: [
             GoRoute(path: '/', builder: (_, __) => const AlbumPage()),
-            GoRoute(path: '/stats', builder: (_, __) => const StatsPage()),
+            GoRoute(path: '/forge', builder: (_, __) => const ForgePage()),
             GoRoute(path: '/scan', builder: (_, __) => const ScanPage()),
-            GoRoute(path: '/settings', builder: (_, __) => const SettingsPage()),
+            GoRoute(path: '/trades', builder: (_, __) => const TradesPage()),
+            GoRoute(path: '/you', builder: (_, __) => const YouPage()),
+            GoRoute(path: '/progress', builder: (_, __) => const StatsPage()),
           ],
         ),
         GoRoute(path: '/profiles', builder: (_, __) => const ProfilesPage()),
         GoRoute(path: '/import', builder: (_, __) => const FiguritasImportPage()),
-        GoRoute(path: '/forge', builder: (_, __) => const ForgePage()),
         GoRoute(path: '/upgrade', builder: (_, __) => const UpgradePage()),
       ],
     );
@@ -64,23 +66,94 @@ class RootShell extends StatelessWidget {
   final Widget child;
   const RootShell({super.key, required this.child});
 
-  static const _tabs = ['/', '/stats', '/scan', '/settings'];
+  // 5-item nav with center FAB for Scan — distinct from Figuritas' flat 4-tabs.
+  static const _navTabs = <_NavItem>[
+    _NavItem('/', Icons.grid_view_rounded, 'Coleção'),
+    _NavItem('/forge', Icons.auto_awesome_rounded, 'Forjar'),
+    _NavItem('/scan', Icons.qr_code_scanner_rounded, '', isCenterFab: true),
+    _NavItem('/trades', Icons.swap_horiz_rounded, 'Trocas'),
+    _NavItem('/you', Icons.person_rounded, 'Você'),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
-    final index = _tabs.indexWhere((t) => loc == t || (t != '/' && loc.startsWith(t)));
+    final activeIndex = _navTabs.indexWhere((t) => loc == t.path);
     return Scaffold(
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index < 0 ? 0 : index,
-        onTap: (i) => context.go(_tabs[i]),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book_rounded), label: 'Álbum'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded), label: 'Estatísticas'),
-          BottomNavigationBarItem(icon: Icon(Icons.swap_horiz_rounded), label: 'Trocar'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: 'Config'),
-        ],
+      extendBody: true,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SizedBox(
+        height: 64,
+        width: 64,
+        child: FloatingActionButton(
+          heroTag: 'fab-scan',
+          backgroundColor: AppTheme.seed,
+          foregroundColor: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 6,
+          onPressed: () => context.go('/scan'),
+          child: const Icon(Icons.qr_code_scanner_rounded, size: 30),
+        ),
+      ),
+      bottomNavigationBar: BottomAppBar(
+        height: 68,
+        padding: EdgeInsets.zero,
+        notchMargin: 8,
+        shape: const CircularNotchedRectangle(),
+        color: Theme.of(context).colorScheme.surface,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            for (var i = 0; i < _navTabs.length; i++)
+              if (_navTabs[i].isCenterFab)
+                const SizedBox(width: 60)
+              else
+                _NavButton(
+                  item: _navTabs[i],
+                  active: i == activeIndex,
+                  onTap: () => context.go(_navTabs[i].path),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  final String path;
+  final IconData icon;
+  final String label;
+  final bool isCenterFab;
+  const _NavItem(this.path, this.icon, this.label, {this.isCenterFab = false});
+}
+
+class _NavButton extends StatelessWidget {
+  final _NavItem item;
+  final bool active;
+  final VoidCallback onTap;
+  const _NavButton({required this.item, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AppTheme.seed : AppTheme.inkSoft;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(item.icon, color: color, size: 24),
+            const SizedBox(height: 2),
+            Text(item.label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                )),
+          ],
+        ),
       ),
     );
   }
