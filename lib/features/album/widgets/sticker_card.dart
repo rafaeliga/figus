@@ -14,12 +14,14 @@ class StickerCard extends StatelessWidget {
   final StickerView sticker;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final double aspectRatio;
 
   const StickerCard({
     super.key,
     required this.sticker,
     required this.onTap,
     required this.onLongPress,
+    this.aspectRatio = 3 / 4,
   });
 
   @override
@@ -34,8 +36,6 @@ class StickerCard extends StatelessWidget {
         : null;
 
     final headerText = sticker.nationCode ?? 'FWC';
-    // Number to display: strip the country prefix from "BRA10" → "10",
-    // "FWC9" → "9", "FWC00" → "00".
     final numericPart = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
 
     return GestureDetector(
@@ -48,8 +48,9 @@ class StickerCard extends StatelessWidget {
         onLongPress();
       },
       child: AspectRatio(
-        aspectRatio: 3 / 4,
+        aspectRatio: aspectRatio,
         child: Stack(
+          clipBehavior: Clip.none,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -123,20 +124,27 @@ class StickerCard extends StatelessWidget {
                       ),
                     )
                   else
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                 ],
               ),
             ),
             if (sticker.status == StickerOwnership.duplicate)
               Positioned(
-                top: -4,
-                right: -4,
+                top: -6,
+                right: -6,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppTheme.seed,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                   constraints: const BoxConstraints(minWidth: 26),
                   child: Text(
@@ -152,6 +160,156 @@ class StickerCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Banner-style card used for the crest + team-photo on the top of each nation
+/// section, mimicking the physical Panini album layout.
+class StickerBanner extends StatelessWidget {
+  final StickerView sticker;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final IconData icon;
+  final String displayLabel;
+
+  const StickerBanner({
+    super.key,
+    required this.sticker,
+    required this.onTap,
+    required this.onLongPress,
+    required this.icon,
+    required this.displayLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final owned = sticker.status != StickerOwnership.missing;
+    final foil = sticker.isFoil;
+
+    final gradient = owned
+        ? (foil
+            ? StickerGradients.foilShimmer
+            : StickerGradients.owned('${sticker.nationCode ?? 'FWC'}-banner-${sticker.positionInPage}'))
+        : null;
+
+    final numericPart = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        onLongPress();
+      },
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            decoration: BoxDecoration(
+              color: owned ? null : AppTheme.slotSoft,
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(16),
+              border: owned
+                  ? null
+                  : Border.all(color: AppTheme.slot.withValues(alpha: 0.4), width: 1),
+              boxShadow: owned
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : null,
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(icon,
+                    size: 38,
+                    color: owned ? Colors.white : AppTheme.inkSoft),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(displayLabel.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            letterSpacing: 0.6,
+                            fontWeight: FontWeight.w700,
+                            color: owned
+                                ? Colors.white.withValues(alpha: 0.85)
+                                : AppTheme.inkSoft,
+                          )),
+                      const SizedBox(height: 2),
+                      Text('#$numericPart',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: owned ? Colors.white : AppTheme.ink,
+                            shadows: owned
+                                ? [
+                                    const Shadow(
+                                      color: Color(0x33000000),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
+                          )),
+                    ],
+                  ),
+                ),
+                if (foil)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: owned ? 0.25 : 0.0),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: owned ? Colors.white : AppTheme.slot,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text('FOIL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: owned ? Colors.white : AppTheme.inkSoft,
+                        )),
+                  ),
+              ],
+            ),
+          ),
+          if (sticker.status == StickerOwnership.duplicate)
+            Positioned(
+              top: -6,
+              right: -6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.seed,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                constraints: const BoxConstraints(minWidth: 26),
+                child: Text('${sticker.duplicateCount}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    )),
+              ),
+            ),
+        ],
       ),
     );
   }

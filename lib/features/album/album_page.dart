@@ -16,10 +16,15 @@ class AlbumPage extends ConsumerStatefulWidget {
 
 class _AlbumPageState extends ConsumerState<AlbumPage> {
   final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+  // Cache of last-loaded sections so a tap doesn't show a loading spinner
+  // (which would also drop the scroll position).
+  List<AlbumSection>? _cachedSections;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -73,26 +78,42 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
             ),
           ),
           Expanded(
-            child: sectionsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Erro: $e')),
-              data: (sections) {
-                if (sections.isEmpty) {
-                  return const Center(child: Text('Nenhuma figurinha encontrada'));
-                }
-                return ListView.builder(
-                  itemCount: sections.length,
-                  itemBuilder: (context, i) => NationSectionWidget(
-                    section: sections[i],
-                    onTap: _onTapSticker,
-                    onLongPress: _onLongPressSticker,
-                  ),
-                );
-              },
-            ),
+            child: _buildList(sectionsAsync),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildList(AsyncValue<List<AlbumSection>> async) {
+    // Use cached data while a refresh is in flight so the user keeps the same
+    // scroll position when tapping a sticker.
+    final data = async.value ?? _cachedSections;
+    if (async.hasValue) _cachedSections = async.value;
+
+    if (data == null) {
+      return async.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Center(
+              child: Text('Erro: ${async.error}'),
+            );
+    }
+    if (data.isEmpty) {
+      return const Center(child: Text('Nenhuma figurinha encontrada'));
+    }
+    return ListView.builder(
+      key: const PageStorageKey('album-list'),
+      controller: _scrollCtrl,
+      itemCount: data.length,
+      itemBuilder: (context, i) {
+        final section = data[i];
+        return NationSectionWidget(
+          key: ValueKey('section-${section.key}'),
+          section: section,
+          onTap: _onTapSticker,
+          onLongPress: _onLongPressSticker,
+        );
+      },
     );
   }
 

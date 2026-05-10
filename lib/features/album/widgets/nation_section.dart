@@ -68,36 +68,84 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
               ),
             ),
           ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: _expanded
-                ? Padding(
-                    key: const ValueKey('expanded'),
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
-                    child: GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: s.stickers.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 3 / 4,
-                      ),
-                      itemBuilder: (context, i) {
-                        final st = s.stickers[i];
-                        return StickerCard(
-                          sticker: st,
-                          onTap: () => widget.onTap(st),
-                          onLongPress: () => widget.onLongPress(st),
-                        );
-                      },
-                    ),
-                  )
-                : const SizedBox.shrink(key: ValueKey('collapsed')),
-          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+              child: _buildLayout(),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLayout() {
+    final s = widget.section;
+    if (s.key == 'FWC') {
+      return _grid(s.stickers, columns: 4);
+    }
+
+    final crest = s.stickers.where((x) => x.type == 'crest').toList();
+    final teamPhoto = s.stickers.where((x) => x.type == 'team_photo').toList();
+    final players = s.stickers.where((x) => x.type == 'player').toList();
+    final extras = s.stickers
+        .where((x) => x.type != 'crest' && x.type != 'team_photo' && x.type != 'player')
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final st in crest)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: StickerBanner(
+              sticker: st,
+              onTap: () => widget.onTap(st),
+              onLongPress: () => widget.onLongPress(st),
+              icon: Icons.shield_rounded,
+              displayLabel: 'Escudo da seleção',
+            ),
+          ),
+        for (final st in teamPhoto)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: StickerBanner(
+              sticker: st,
+              onTap: () => widget.onTap(st),
+              onLongPress: () => widget.onLongPress(st),
+              icon: Icons.groups_rounded,
+              displayLabel: 'Foto da equipe',
+            ),
+          ),
+        if (players.isNotEmpty) _grid(players, columns: 4),
+        if (extras.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _grid(extras, columns: 4),
+          ),
+      ],
+    );
+  }
+
+  Widget _grid(List<StickerView> items, {required int columns}) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        childAspectRatio: 3 / 4,
+      ),
+      itemBuilder: (_, i) {
+        final st = items[i];
+        return StickerCard(
+          key: ValueKey('sticker-${st.id}'),
+          sticker: st,
+          onTap: () => widget.onTap(st),
+          onLongPress: () => widget.onLongPress(st),
+        );
+      },
     );
   }
 }
