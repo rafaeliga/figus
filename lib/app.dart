@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/album/album_page.dart';
+import 'features/album/nation_detail_page.dart';
 import 'features/duplicates/duplicates_page.dart';
 import 'features/import/figuritas_import_page.dart';
 import 'features/onboarding/onboarding_page.dart';
@@ -43,6 +44,10 @@ class FigusApp extends ConsumerWidget {
             GoRoute(path: '/trades', builder: (_, __) => const TradesPage()),
             GoRoute(path: '/you', builder: (_, __) => const YouPage()),
           ],
+        ),
+        GoRoute(
+          path: '/nation/:code',
+          builder: (_, state) => NationDetailPage(code: state.pathParameters['code']!),
         ),
         GoRoute(path: '/scan', builder: (_, __) => const ScanPage()),
         GoRoute(path: '/progress', builder: (_, __) => const StatsPage()),

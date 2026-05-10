@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:country_flags/country_flags.dart';
+
+import '../../core/country_codes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
 import '../../data/repos/album_repo.dart';
 import '../../domain/models/album_view_models.dart';
 import '../share/share_service.dart';
-import 'widgets/nation_section.dart';
 
+/// Coleção — index of nations. Tap a nation → opens its dedicated page
+/// laid out like the physical album.
 class AlbumPage extends ConsumerStatefulWidget {
   const AlbumPage({super.key});
   @override
@@ -17,15 +21,10 @@ class AlbumPage extends ConsumerStatefulWidget {
 
 class _AlbumPageState extends ConsumerState<AlbumPage> {
   final _searchCtrl = TextEditingController();
-  final _scrollCtrl = ScrollController();
-  // Cache of last-loaded sections so a tap doesn't show a loading spinner
-  // (which would also drop the scroll position).
-  List<AlbumSection>? _cachedSections;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
-    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -57,7 +56,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
       ),
       body: Column(
         children: [
-          _FilterTabs(
+          _FilterChips(
             current: filter,
             onChanged: (f) => ref.read(albumFilterProvider.notifier).state = f,
           ),
@@ -67,7 +66,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
               controller: _searchCtrl,
               onChanged: (v) => ref.read(albumSearchProvider.notifier).state = v,
               decoration: InputDecoration(
-                hintText: 'Buscar (BRA10, jogador...)',
+                hintText: 'Buscar seleção ou figurinha',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _searchCtrl.text.isEmpty
                     ? null
@@ -89,53 +88,24 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
             ),
           ),
           Expanded(
-            child: _buildList(sectionsAsync),
+            child: sectionsAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Erro: $e')),
+              data: (sections) {
+                if (sections.isEmpty) {
+                  return const Center(child: Text('Nenhuma seleção encontrada'));
+                }
+                return ListView.builder(
+                  key: const PageStorageKey('nations-list'),
+                  itemCount: sections.length,
+                  itemBuilder: (_, i) => _NationCard(section: sections[i]),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Widget _buildList(AsyncValue<List<AlbumSection>> async) {
-    // Use cached data while a refresh is in flight so the user keeps the same
-    // scroll position when tapping a sticker.
-    final data = async.value ?? _cachedSections;
-    if (async.hasValue) _cachedSections = async.value;
-
-    if (data == null) {
-      return async.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Center(
-              child: Text('Erro: ${async.error}'),
-            );
-    }
-    if (data.isEmpty) {
-      return const Center(child: Text('Nenhuma figurinha encontrada'));
-    }
-    return ListView.builder(
-      key: const PageStorageKey('album-list'),
-      controller: _scrollCtrl,
-      itemCount: data.length,
-      itemBuilder: (context, i) {
-        final section = data[i];
-        return NationSectionWidget(
-          key: ValueKey('section-${section.key}'),
-          section: section,
-          onTap: _onTapSticker,
-          onLongPress: _onLongPressSticker,
-        );
-      },
-    );
-  }
-
-  Future<void> _onTapSticker(StickerView s) async {
-    await ref.read(collectionRepoProvider).tapSticker(s.id);
-    ref.read(collectionVersionProvider.notifier).state++;
-  }
-
-  Future<void> _onLongPressSticker(StickerView s) async {
-    await ref.read(collectionRepoProvider).removeSticker(s.id);
-    ref.read(collectionVersionProvider.notifier).state++;
   }
 
   void _showShareSheet() {
@@ -149,16 +119,22 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
             ListTile(
               leading: const Icon(Icons.percent_rounded, color: AppTheme.seed),
               title: const Text('Meu progresso (cartão visual)'),
-              subtitle: const Text('Imagem 1080×1080 pra status do WhatsApp'),
               onTap: () async {
                 Navigator.pop(sheetCtx);
-                await _shareProgressCard();
+                final stats = await ref.read(albumRepoProvider).loadStats();
+                final profile = await ref.read(profileRepoProvider).active();
+                if (!mounted) return;
+                await ShareService.shareProgressCard(
+                  context,
+                  stats: stats,
+                  albumName: 'Copa do Mundo FIFA 2026',
+                  profileName: profile.name,
+                );
               },
             ),
             ListTile(
               leading: const Icon(Icons.checklist_rounded, color: AppTheme.seed),
               title: const Text('Lista das que me faltam'),
-              subtitle: const Text('Texto agrupado por seleção'),
               onTap: () async {
                 Navigator.pop(sheetCtx);
                 await _shareList(AlbumFilter.missing, 'Me faltam essas figurinhas:');
@@ -167,7 +143,6 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
             ListTile(
               leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.seed),
               title: const Text('Lista das repetidas'),
-              subtitle: const Text('Pra propor troca'),
               onTap: () async {
                 Navigator.pop(sheetCtx);
                 await _shareList(AlbumFilter.duplicates, 'Tenho essas repetidas pra trocar:');
@@ -177,18 +152,6 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _shareProgressCard() async {
-    final stats = await ref.read(albumRepoProvider).loadStats();
-    final profile = await ref.read(profileRepoProvider).active();
-    if (!mounted) return;
-    await ShareService.shareProgressCard(
-      context,
-      stats: stats,
-      albumName: 'Copa do Mundo FIFA 2026',
-      profileName: profile.name,
     );
   }
 
@@ -206,52 +169,151 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
   }
 }
 
-class _FilterTabs extends StatelessWidget {
+class _FilterChips extends StatelessWidget {
   final AlbumFilter current;
   final ValueChanged<AlbumFilter> onChanged;
-  const _FilterTabs({required this.current, required this.onChanged});
+  const _FilterChips({required this.current, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    final tabs = const [
-      (AlbumFilter.all, 'Todas'),
-      (AlbumFilter.missing, 'Me faltam'),
-      (AlbumFilter.duplicates, 'Repetidas'),
+    const items = <(AlbumFilter, String, IconData)>[
+      (AlbumFilter.all, 'Todas', Icons.apps_rounded),
+      (AlbumFilter.missing, 'Me faltam', Icons.radar_rounded),
+      (AlbumFilter.duplicates, 'Repetidas', Icons.copy_all_rounded),
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       child: Row(
         children: [
-          for (final (f, label) in tabs)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(f),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: current == f ? AppTheme.seed.withValues(alpha: 0.10) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border(
-                      bottom: BorderSide(
-                        color: current == f ? AppTheme.seed : Colors.transparent,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: current == f ? FontWeight.w700 : FontWeight.w500,
-                      color: current == f ? AppTheme.seed : AppTheme.inkSoft,
-                    ),
-                  ),
+          for (final (f, label, icon) in items)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                selected: current == f,
+                onSelected: (_) => onChanged(f),
+                avatar: Icon(icon,
+                    size: 16,
+                    color: current == f ? Colors.white : AppTheme.inkSoft),
+                label: Text(label),
+                labelStyle: TextStyle(
+                  color: current == f ? Colors.white : AppTheme.inkSoft,
+                  fontWeight: FontWeight.w600,
                 ),
+                selectedColor: AppTheme.seed,
+                backgroundColor: AppTheme.slotSoft,
+                showCheckmark: false,
+                side: BorderSide.none,
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _FlagThumb extends StatelessWidget {
+  final String code;
+  const _FlagThumb({required this.code});
+
+  @override
+  Widget build(BuildContext context) {
+    final iso = paniniToIso2[code];
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.slotSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: iso == null
+          ? Text(
+              code == 'FWC' ? '🏆' : code,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            )
+          : CountryFlag.fromCountryCode(
+              iso,
+              shape: const RoundedRectangle(6),
+              width: 36,
+              height: 26,
+            ),
+    );
+  }
+}
+
+class _NationCard extends StatelessWidget {
+  final AlbumSection section;
+  const _NationCard({required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = section.totalCount == 0
+        ? 0.0
+        : section.ownedCount / section.totalCount;
+    final complete = section.ownedCount == section.totalCount && section.totalCount > 0;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: InkWell(
+        onTap: () => context.push('/nation/${section.key}'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Row(
+            children: [
+              _FlagThumb(code: section.key),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            section.title,
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (complete)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF22C58A), size: 18),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(
+                            '${section.ownedCount}/${section.totalCount}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.inkSoft,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 6,
+                        backgroundColor: AppTheme.slotSoft,
+                        color: complete ? const Color(0xFF22C58A) : AppTheme.seed,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.inkSoft),
+            ],
+          ),
+        ),
       ),
     );
   }
