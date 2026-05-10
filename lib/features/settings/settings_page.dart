@@ -13,9 +13,9 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.workspace_premium_outlined),
             title: const Text('Obter Pro (R\$ 9,90 lifetime)'),
-            subtitle: const Text('Remove banner + temas premium'),
+            subtitle: const Text('Remove banner + temas premium · pagamento único'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _comingSoon(context),
+            onTap: () => context.push('/upgrade'),
           ),
           ListTile(
             leading: const Icon(Icons.help_outline_rounded),
