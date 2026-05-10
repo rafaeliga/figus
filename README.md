@@ -4,38 +4,32 @@ App pessoal de gestão de figurinhas — começando pelo álbum **Panini FIFA Wo
 
 > **Status:** alpha noturno. MVP da Noite 1 = núcleo funcional (980 figurinhas, marcação tem/falta/repetida, filtros, estatísticas, multi-perfil família, onboarding). OCR completo, importação Figuritas, share WhatsApp, sync e crafting chegam nas próximas noites conforme o plano em `~/.claude/plans/quero-fazer-um-app-parsed-hartmanis.md`.
 
-## Como rodar (primeira vez)
+## Como rodar (TESTE RÁPIDO — Chrome)
 
-### 1. Pré-requisitos
-- **Flutter SDK** ≥ 3.24 — baixe do [site oficial](https://docs.flutter.dev/get-started/install) ou rode `setup_flutter.ps1` (descrito abaixo).
-- **Android Studio** (com Android SDK + emulador) ou um celular Android com modo desenvolvedor + cabo USB.
+Tudo já está instalado e configurado em `C:\Dani_Dev\figus`. Flutter SDK em `C:\flutter`.
 
-### 2. Setup rápido (Windows PowerShell)
 ```powershell
-# Na raiz do projeto:
 cd C:\Dani_Dev\figus
-
-# Gera os arquivos de plataforma (android/, ios/) sem mexer em lib/
-flutter create . --project-name figus --org com.danielsampaio --platforms android
-
-# Instala dependências
-flutter pub get
-
-# Gera código do drift (ORM)
-dart run build_runner build --delete-conflicting-outputs
-
-# Lista emuladores/devices
-flutter devices
+.\start_app.ps1
 ```
 
-### 3. Rodar
-```powershell
-# Modo debug (hot reload)
-flutter run
+Isso abre o Chrome em `http://localhost:8080` com o app rodando. Primeira execução ~30s pra compilar; subsequentes são instantâneas (hot reload).
 
-# Build APK pra instalar no celular
-flutter build apk --debug
-# APK vai pra build/app/outputs/flutter-apk/app-debug.apk
+### Validação feita na Noite 1
+- ✅ `flutter pub get` — 22 deps OK
+- ✅ `dart run build_runner build` — 115 outputs (drift) gerados
+- ✅ `flutter analyze` — zero errors (só info-level lints sobre const)
+- ✅ `flutter test` — **6/6 passando** (980 stickers, 48 nações × 20, FWC válido, foils, IDs únicos)
+- ✅ `flutter build web --release` — 2.4MB main.dart.js
+- ✅ `flutter run -d chrome` — compilou em 53s e abriu sem crashes
+
+### Para testar em Android (depois)
+Precisa Android Studio + Android SDK instalado:
+```powershell
+flutter doctor                        # diagnóstico
+flutter run                           # roda em emulador/celular conectado
+flutter build apk --debug             # gera APK debug
+# APK fica em build/app/outputs/flutter-apk/app-debug.apk
 ```
 
 ## O que está pronto na Noite 1
