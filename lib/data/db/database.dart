@@ -1,19 +1,14 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
 import '../seeds/wc2026_seed.dart';
+import 'connection/connection.dart' as conn;
 import 'tables.dart';
 
 part 'database.g.dart';
 
 @DriftDatabase(tables: [Albums, Nations, Stickers, Profiles, Collections, Wishlist])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(conn.openConnection());
   AppDatabase.forTesting(super.e);
 
   @override
@@ -71,16 +66,4 @@ class AppDatabase extends _$AppDatabase {
       ));
     });
   }
-}
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dir.path, 'figus.sqlite'));
-
-    if (Platform.isAndroid) {
-      await applyWorkaroundToOpenSqlite3OnOldAndroidVersions();
-    }
-    return NativeDatabase.createInBackground(file);
-  });
 }
