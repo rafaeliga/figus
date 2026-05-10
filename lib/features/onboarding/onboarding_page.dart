@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app.dart' show onboardedProvider;
 import '../../core/theme/app_theme.dart';
 
-class OnboardingPage extends StatefulWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
   @override
-  State<OnboardingPage> createState() => _OnboardingPageState();
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage> {
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   final _ctrl = PageController();
   int _index = 0;
 
@@ -69,6 +71,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   } else {
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setBool('onboarded', true);
+                    // Invalidate so the router redirect re-reads the new value.
+                    ref.invalidate(onboardedProvider);
                     if (mounted) context.go('/');
                   }
                 },

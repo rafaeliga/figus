@@ -14,7 +14,7 @@ import 'features/settings/settings_page.dart';
 import 'features/settings/upgrade_page.dart';
 import 'features/stats/stats_page.dart';
 
-final _onboardedProvider = FutureProvider<bool>((_) async {
+final onboardedProvider = FutureProvider<bool>((_) async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool('onboarded') ?? false;
 });
@@ -24,7 +24,7 @@ class FigusApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final onboardedAsync = ref.watch(_onboardedProvider);
+    final onboardedAsync = ref.watch(onboardedProvider);
     final router = GoRouter(
       initialLocation: '/',
       redirect: (context, state) {
