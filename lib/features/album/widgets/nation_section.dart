@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/models/album_view_models.dart';
@@ -80,31 +81,59 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
 
   Widget _buildLayout() {
     final s = widget.section;
-    // Sort by physical-album sequence (positionInPage). Every sticker — crest,
-    // team photo, players — sits in the same uniform grid in the same order
-    // as the printed page, so the user can match position 1-for-1 with paper.
     final ordered = [...s.stickers]
       ..sort((a, b) => a.positionInPage.compareTo(b.positionInPage));
-    final cols = s.key == 'FWC' ? 4 : 4;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: ordered.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 10,
-        childAspectRatio: 3 / 4,
-      ),
-      itemBuilder: (_, i) {
-        final st = ordered[i];
-        return StickerCard(
-          key: ValueKey('sticker-${st.id}'),
-          sticker: st,
-          onTap: () => widget.onTap(st),
-          onLongPress: () => widget.onLongPress(st),
-        );
-      },
+
+    if (s.key == 'FWC') {
+      // Specials: simple uniform grid
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: ordered.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 10,
+          childAspectRatio: 3 / 4,
+        ),
+        itemBuilder: (_, i) => _card(ordered[i]),
+      );
+    }
+
+    // Nation page mimicking the physical Panini album:
+    //   - sticker #1 (crest)      → 2×2 (top-left)
+    //   - sticker #2 (team photo) → 2×2 (top-right)
+    //   - stickers #3..#20         → 1×1 each, filling the grid in sequence
+    return StaggeredGrid.count(
+      crossAxisCount: 4,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      children: [
+        for (final st in ordered)
+          StaggeredGridTile.count(
+            crossAxisCellCount: _cellSpan(st),
+            mainAxisCellCount: _cellSpan(st),
+            child: _card(st, isBig: _cellSpan(st) > 1),
+          ),
+      ],
+    );
+  }
+
+  int _cellSpan(StickerView st) {
+    // crest and team_photo span 2x2; everything else 1x1.
+    if (st.type == 'crest' || st.type == 'team_photo') return 2;
+    return 1;
+  }
+
+  Widget _card(StickerView st, {bool isBig = false}) {
+    return StickerCard(
+      key: ValueKey('sticker-${st.id}'),
+      sticker: st,
+      onTap: () => widget.onTap(st),
+      onLongPress: () => widget.onLongPress(st),
+      // For 2x2 tiles inside a staggered grid, the height/width = 2*cell + spacing,
+      // so the natural aspect is closer to 1:1 than 3:4.
+      aspectRatio: isBig ? 1.0 : 3 / 4,
     );
   }
 }

@@ -53,9 +53,22 @@ class CollectionRepo {
     }
   }
 
-  /// Long press: clears the sticker entirely.
+  /// Long press: removes ONE copy.
+  /// duplicate(N>1) → duplicate(N-1) · duplicate(1) → owned · owned → missing.
   Future<void> removeSticker(int stickerId) async {
     final pid = await _activeProfileId();
-    await _upsert(pid, stickerId, 'missing', 0);
+    final e = await _entry(pid, stickerId);
+    if (e == null || e.status == 'missing') return;
+    if (e.status == 'duplicate') {
+      final next = e.duplicateCount - 1;
+      if (next <= 0) {
+        await _upsert(pid, stickerId, 'owned', 0);
+      } else {
+        await _upsert(pid, stickerId, 'duplicate', next);
+      }
+    } else {
+      // 'owned' → missing
+      await _upsert(pid, stickerId, 'missing', 0);
+    }
   }
 }
