@@ -39,9 +39,21 @@ dependencies:
 
   # Web support for drift (SQLite via WASM)
   drift_flutter: ^0.2.4
-  # NOTE: heavy plugins (camera, mlkit, share_plus, file_picker) come in Noite 2
-  # when OCR and import features land. Keeping pubspec light keeps web/desktop
-  # builds running today.
+
+  # Share (WhatsApp + native share sheets — works on web + mobile)
+  share_plus: ^10.0.2
+  cross_file: ^0.3.4+2
+
+  # File picking for Figuritas PDF/image import
+  file_picker: ^8.1.2
+
+  # Camera + OCR (mobile-only; gated by Platform check in scan_page)
+  camera: ^0.11.0+2
+  google_mlkit_text_recognition: ^0.14.0
+  image: ^4.2.0
+
+  # Capture widget tree as image for share cards
+  screenshot: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -52,8 +64,22 @@ dev_dependencies:
   riverpod_generator: ^2.4.3
   custom_lint: ^0.6.7
   riverpod_lint: ^2.3.13
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#1F66FF"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#1F66FF"
+    theme_color: "#1F66FF"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/seeds/
+    - assets/icon/

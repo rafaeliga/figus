@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme/app_theme.dart';
 import 'features/album/album_page.dart';
+import 'features/import/figuritas_import_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/profiles/profiles_page.dart';
 import 'features/scan/scan_page.dart';
@@ -41,6 +42,7 @@ class FigusApp extends ConsumerWidget {
           ],
         ),
         GoRoute(path: '/profiles', builder: (_, __) => const ProfilesPage()),
+        GoRoute(path: '/import', builder: (_, __) => const FiguritasImportPage()),
       ],
     );
 

@@ -39,9 +39,9 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.file_upload_outlined),
             title: const Text('Importar do Figuritas'),
-            subtitle: const Text('Em breve'),
+            subtitle: const Text('Foto, screenshot ou lista colada'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _comingSoon(context),
+            onTap: () => context.push('/import'),
           ),
           ListTile(
             leading: const Icon(Icons.dark_mode_outlined),

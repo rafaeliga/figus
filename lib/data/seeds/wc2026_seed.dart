@@ -188,13 +188,13 @@ class WC2026Seed {
         if (i == 1) {
           type = 'crest';
           isFoil = true;
-          label = 'Escudo ${nation.code}';
+          label = 'Escudo';
         } else if (i == 2) {
           type = 'team_photo';
-          label = 'Foto da equipe';
+          label = 'Equipe';
         } else {
           type = 'player';
-          label = 'Jogador ${nation.code} ${i - 2}';
+          label = ''; // sigla + número já são suficientes na UI
         }
         list.add(SeedSticker(
           number: '${nation.code}$i',

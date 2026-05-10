@@ -33,9 +33,10 @@ class StickerCard extends StatelessWidget {
             : StickerGradients.owned('${sticker.nationCode ?? 'FWC'}-${sticker.positionInPage}'))
         : null;
 
-    final headerText = sticker.nationCode != null
-        ? '${sticker.nationCode}'
-        : sticker.type.toUpperCase();
+    final headerText = sticker.nationCode ?? 'FWC';
+    // Number to display: strip the country prefix from "BRA10" → "10",
+    // "FWC9" → "9", "FWC00" → "00".
+    final numericPart = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
 
     return GestureDetector(
       onTap: () {
@@ -91,7 +92,7 @@ class StickerCard extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '#${sticker.positionInPage > 0 || sticker.nationCode != null ? sticker.positionInPage + (sticker.nationCode != null ? 1 : 0) : 0}',
+                        '#$numericPart',
                         style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
@@ -103,23 +104,26 @@ class StickerCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      sticker.label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 9,
-                        height: 1.15,
-                        color: owned
-                            ? Colors.white.withValues(alpha: 0.95)
-                            : AppTheme.inkSoft,
-                        fontWeight: FontWeight.w500,
+                  if (sticker.label.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        sticker.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9,
+                          height: 1.15,
+                          color: owned
+                              ? Colors.white.withValues(alpha: 0.95)
+                              : AppTheme.inkSoft,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ),
+                    )
+                  else
+                    const SizedBox(height: 12),
                 ],
               ),
             ),

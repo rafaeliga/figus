@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
 import '../../data/repos/album_repo.dart';
 import '../../domain/models/album_view_models.dart';
+import '../share/share_service.dart';
 import 'widgets/nation_section.dart';
 
 class AlbumPage extends ConsumerStatefulWidget {
@@ -109,30 +110,67 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => SafeArea(
+      builder: (sheetCtx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             ListTile(
-              leading: Icon(Icons.percent_rounded),
-              title: Text('Meu progresso (cartão visual)'),
-              subtitle: Text('Em breve — gera card e abre WhatsApp'),
+              leading: const Icon(Icons.percent_rounded, color: AppTheme.seed),
+              title: const Text('Meu progresso (cartão visual)'),
+              subtitle: const Text('Imagem 1080×1080 pra status do WhatsApp'),
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                await _shareProgressCard();
+              },
             ),
             ListTile(
-              leading: Icon(Icons.checklist_rounded),
-              title: Text('Lista das que me faltam'),
-              subtitle: Text('Em breve'),
+              leading: const Icon(Icons.checklist_rounded, color: AppTheme.seed),
+              title: const Text('Lista das que me faltam'),
+              subtitle: const Text('Texto agrupado por seleção'),
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                await _shareList(AlbumFilter.missing, 'Me faltam essas figurinhas:');
+              },
             ),
             ListTile(
-              leading: Icon(Icons.swap_horiz_rounded),
-              title: Text('Lista das repetidas (pra trocar)'),
-              subtitle: Text('Em breve'),
+              leading: const Icon(Icons.swap_horiz_rounded, color: AppTheme.seed),
+              title: const Text('Lista das repetidas'),
+              subtitle: const Text('Pra propor troca'),
+              onTap: () async {
+                Navigator.pop(sheetCtx);
+                await _shareList(AlbumFilter.duplicates, 'Tenho essas repetidas pra trocar:');
+              },
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _shareProgressCard() async {
+    final stats = await ref.read(albumRepoProvider).loadStats();
+    final profile = await ref.read(profileRepoProvider).active();
+    if (!mounted) return;
+    await ShareService.shareProgressCard(
+      context,
+      stats: stats,
+      albumName: 'Copa do Mundo FIFA 2026',
+      profileName: profile.name,
+    );
+  }
+
+  Future<void> _shareList(AlbumFilter filter, String title) async {
+    final sections = await ref.read(albumRepoProvider).loadSections(filter: filter);
+    final flat = sections.expand((s) => s.stickers).toList();
+    if (flat.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nenhuma figurinha nessa categoria')),
+      );
+      return;
+    }
+    await ShareService.shareTextList(title: title, stickers: flat);
   }
 }
 
