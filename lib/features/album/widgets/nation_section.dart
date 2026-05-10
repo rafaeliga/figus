@@ -110,7 +110,7 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
 
     // Nation page mimicking the physical Panini album:
     //   - sticker #1 (crest)      → 1×1 portrait (same size as players)
-    //   - sticker #2 (team photo) → 2×1 landscape (twice as wide as a player)
+    //   - sticker #2 (team photo) → 1 col wide but landscape (shorter)
     //   - stickers #3..#20         → 1×1 portrait
     return StaggeredGrid.count(
       crossAxisCount: 4,
@@ -119,16 +119,16 @@ class _NationSectionWidgetState extends State<NationSectionWidget> {
       children: [
         for (final st in ordered)
           StaggeredGridTile.count(
-            crossAxisCellCount: st.type == 'team_photo' ? 2 : 1,
-            mainAxisCellCount: st.type == 'team_photo' ? 0.75 : 1,
-            // mainAxis 0.75 with crossAxis=2 → tile is twice as wide and 3/4
-            // as tall as a 1×1, giving an ~8:3 landscape look.
+            crossAxisCellCount: 1,
+            // Players/crest tiles are tall (3:4 portrait → main = 4/3 of cross).
+            // Team photo is landscape (4:3 → main = 3/4 of cross).
+            mainAxisCellCount: st.type == 'team_photo' ? 0.75 : (4 / 3),
             child: StickerCard(
               key: ValueKey('sticker-${st.id}'),
               sticker: st,
               onTap: () => widget.onTap(st),
               onLongPress: () => widget.onLongPress(st),
-              aspectRatio: st.type == 'team_photo' ? 8 / 3 : 3 / 4,
+              aspectRatio: st.type == 'team_photo' ? 4 / 3 : 3 / 4,
             ),
           ),
       ],
