@@ -24,6 +24,13 @@ class SettingsPage extends StatelessWidget {
             onTap: () => _showHowItWorks(context),
           ),
           ListTile(
+            leading: const Icon(Icons.auto_awesome_rounded),
+            title: const Text('Forjar repetidas'),
+            subtitle: const Text('5 repetidas → 1 que falta'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/forge'),
+          ),
+          ListTile(
             leading: const Icon(Icons.people_outline_rounded),
             title: const Text('Perfis (família)'),
             trailing: const Icon(Icons.chevron_right),
