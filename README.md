@@ -23,14 +23,28 @@ Isso abre o Chrome em `http://localhost:8080` com o app rodando. Primeira execu�
 - ✅ `flutter build web --release` — 2.4MB main.dart.js
 - ✅ `flutter run -d chrome` — compilou em 53s e abriu sem crashes
 
-### Para testar em Android (depois)
-Precisa Android Studio + Android SDK instalado:
+### Para testar em Android
+
+Android SDK + Android Studio + JBR já estão configurados. APK release fica em
+`build/app/outputs/flutter-apk/app-release.apk`. Pra rodar/buildar:
+
 ```powershell
-flutter doctor                        # diagnóstico
-flutter run                           # roda em emulador/celular conectado
-flutter build apk --debug             # gera APK debug
-# APK fica em build/app/outputs/flutter-apk/app-debug.apk
+# Variáveis de ambiente (já passadas pelos scripts)
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = 'C:\Android\Sdk'
+$env:Path = "C:\flutter\bin;$env:JAVA_HOME\bin;C:\Android\Sdk\platform-tools;" + $env:Path
+
+flutter devices                       # lista emuladores e celular USB
+flutter run                           # debug com hot reload
+flutter build apk --release           # APK pra instalar no celular
+flutter build appbundle --release     # AAB pra Google Play Console
 ```
+
+**Pra instalar no celular Android:**
+1. Habilite "modo desenvolvedor" e "depuração USB" no celular
+2. Conecte via cabo USB
+3. `adb install -r build/app/outputs/flutter-apk/app-release.apk`
+4. Ou copie o APK pra pasta Downloads do celular e instale tocando nele (precisa permitir "fontes desconhecidas")
 
 ## O que está pronto na Noite 1
 
