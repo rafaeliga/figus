@@ -189,7 +189,7 @@ class WC2026Seed {
           type = 'crest';
           isFoil = true;
           label = 'Escudo';
-        } else if (i == 2) {
+        } else if (i == 13) {
           type = 'team_photo';
           label = 'Equipe';
         } else {
