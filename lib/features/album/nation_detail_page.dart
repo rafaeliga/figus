@@ -122,40 +122,26 @@ class _PaniniLayout extends StatelessWidget {
           );
         }
 
-        // Two columns of stickers #1 and #2 stacked next to the 2x2 header.
+        // Header spans 2 cols × 1 row (same height as a sticker — per WF).
         final headerW = 2 * cell + _gap;
-        final headerH = 2 * cellH + _gap;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── PÁGINA 1 ─────────────────────────────────────────
-            //  ROW: HEADER (2×2)  |  #1  |  #2
-            //                      |  --  |  --
+            //  ROW: HEADER (2×1)  |  #1  |  #2
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _HeaderBlock(
                   width: headerW,
-                  height: headerH,
+                  height: cellH,
                   section: section,
                 ),
                 const SizedBox(width: _gap),
-                Column(
-                  children: [
-                    tile(0), // #1
-                    const SizedBox(height: _gap),
-                    SizedBox(width: cell, height: cellH), // empty
-                  ],
-                ),
+                tile(0), // #1
                 const SizedBox(width: _gap),
-                Column(
-                  children: [
-                    tile(1), // #2
-                    const SizedBox(height: _gap),
-                    SizedBox(width: cell, height: cellH), // empty
-                  ],
-                ),
+                tile(1), // #2
               ],
             ),
             const SizedBox(height: _gap),
@@ -182,11 +168,10 @@ class _PaniniLayout extends StatelessWidget {
             // ROW: #14 #15 #16 #17
             _rowOf4(tile, 13, _gap),
             const SizedBox(height: _gap),
-            // ROW: [GROUP info] #18 #19 #20
+            // ROW: (empty space) #18 #19 #20 — alinhados à direita
             Row(
               children: [
-                _GroupBlock(width: cell, height: cellH, section: section),
-                const SizedBox(width: _gap),
+                SizedBox(width: cell + _gap), // espaço vazio à esquerda
                 tile(17), // #18
                 const SizedBox(width: _gap),
                 tile(18), // #19
@@ -236,18 +221,29 @@ class _HeaderBlock extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(14),
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('WE ARE',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 11,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w800,
-              )),
-          const SizedBox(height: 2),
+          Row(
+            children: [
+              Text('WE ARE',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 11,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w800,
+                  )),
+              const Spacer(),
+              if (iso != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CountryFlag.fromCountryCode(iso, width: 22, height: 16),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Expanded(
             child: FittedBox(
               alignment: Alignment.centerLeft,
@@ -256,37 +252,13 @@ class _HeaderBlock extends StatelessWidget {
                 name.toUpperCase(),
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 38,
+                  fontSize: 30,
                   height: 0.95,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: -1,
+                  letterSpacing: -0.5,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              if (iso != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: CountryFlag.fromCountryCode(iso, width: 30, height: 22),
-                ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Confederação · $name',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    height: 1.2,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -297,51 +269,6 @@ class _HeaderBlock extends StatelessWidget {
     final idx = title.indexOf('-');
     if (idx < 0) return title;
     return title.substring(idx + 1).trim();
-  }
-}
-
-class _GroupBlock extends StatelessWidget {
-  final double width;
-  final double height;
-  final AlbumSection section;
-  const _GroupBlock({required this.width, required this.height, required this.section});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppTheme.slotSoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.slot.withValues(alpha: 0.4)),
-      ),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('GRUPO',
-              style: TextStyle(
-                fontSize: 9,
-                letterSpacing: 1.2,
-                color: AppTheme.inkSoft,
-                fontWeight: FontWeight.w700,
-              )),
-          const SizedBox(height: 4),
-          const Text(
-            '—',
-            style: TextStyle(
-                fontSize: 24, fontWeight: FontWeight.w900, color: AppTheme.ink),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            section.key,
-            style: const TextStyle(
-                fontSize: 10, color: AppTheme.inkSoft, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
   }
 }
 

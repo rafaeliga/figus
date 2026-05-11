@@ -73,60 +73,63 @@ class StickerCard extends StatelessWidget {
                     : null,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    headerText,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      letterSpacing: 0.5,
-                      fontWeight: FontWeight.w600,
-                      color: owned
-                          ? Colors.white.withValues(alpha: 0.9)
-                          : AppTheme.inkSoft,
+              child: LayoutBuilder(builder: (ctx, c) {
+                // Sizes proportional to card width so #1, #2, ... #20 all
+                // share the exact same visual treatment regardless of digits.
+                final w = c.maxWidth;
+                final headerFs = (w * 0.13).clamp(8.0, 12.0);
+                final numFs = (w * 0.34).clamp(18.0, 28.0);
+                final labelFs = (w * 0.10).clamp(8.0, 11.0);
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      headerText,
+                      style: TextStyle(
+                        fontSize: headerFs,
+                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w600,
+                        color: owned
+                            ? Colors.white.withValues(alpha: 0.9)
+                            : AppTheme.inkSoft,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        '#$numericPart',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w800,
-                          color: owned ? Colors.white : AppTheme.ink,
-                          shadows: owned
-                              ? [const Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))]
-                              : null,
-                        ),
+                    Text(
+                      '#$numericPart',
+                      style: TextStyle(
+                        fontSize: numFs,
+                        fontWeight: FontWeight.w800,
+                        color: owned ? Colors.white : AppTheme.ink,
+                        shadows: owned
+                            ? [const Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))]
+                            : null,
                       ),
                     ),
-                  ),
-                  if (sticker.label.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        sticker.label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 9,
-                          height: 1.15,
-                          color: owned
-                              ? Colors.white.withValues(alpha: 0.95)
-                              : AppTheme.inkSoft,
-                          fontWeight: FontWeight.w500,
+                    if (sticker.label.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          sticker.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: labelFs,
+                            height: 1.15,
+                            color: owned
+                                ? Colors.white.withValues(alpha: 0.95)
+                                : AppTheme.inkSoft,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    )
-                  else
-                    const SizedBox(height: 10),
-                ],
-              ),
+                      )
+                    else
+                      SizedBox(height: labelFs + 2),
+                  ],
+                );
+              }),
             ),
             if (sticker.status == StickerOwnership.duplicate)
               Positioned(
