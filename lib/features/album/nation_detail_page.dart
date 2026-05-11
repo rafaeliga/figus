@@ -2,7 +2,6 @@ import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/country_codes.dart';
@@ -12,8 +11,18 @@ import '../../data/repos/album_repo.dart';
 import '../../domain/models/album_view_models.dart';
 import 'widgets/sticker_card.dart';
 
-/// Page dedicated to ONE nation — mimics the layout of the printed Panini
-/// album page (header info + 20 stickers grid with #13 as team-photo landscape).
+/// Page dedicated to ONE nation, laid out like the printed Panini album:
+///
+///   Page 1                       Page 2
+///   ┌──────────┬──────┬──────┐   ┌──────┬──────┬─────────────┐
+///   │  WE ARE  │  #1  │  #2  │   │ #11  │ #12  │   #13 (2x1) │
+///   │  BRAZIL  ├──────┴──────┤   ├──────┼──────┼──────┬──────┤
+///   │  brasão  │             │   │ #14  │ #15  │ #16  │ #17  │
+///   ├──┬───┬───┴──┬───┬──────┤   ├──────┼──────┼──────┼──────┤
+///   │#3│#4 │ #5   │#6 │      │   │GROUP │ #18  │ #19  │ #20  │
+///   ├──┼───┼──────┼───┤      │   │      │      │      │      │
+///   │#7│#8 │ #9   │#10│      │   └──────┴──────┴──────┴──────┘
+///   └──┴───┴──────┴───┘
 class NationDetailPage extends ConsumerWidget {
   final String code;
   const NationDetailPage({super.key, required this.code});
@@ -28,6 +37,20 @@ class NationDetailPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: asyncSection.maybeWhen(
+              data: (s) => s == null
+                  ? const SizedBox.shrink()
+                  : Center(
+                      child: Text('${s.ownedCount}/${s.totalCount}',
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+              orElse: () => const SizedBox.shrink(),
+            ),
+          ),
+        ],
       ),
       body: asyncSection.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -36,7 +59,7 @@ class NationDetailPage extends ConsumerWidget {
           if (section == null || section.totalCount == 0) {
             return const Center(child: Text('Seleção não encontrada'));
           }
-          return _NationDetailBody(
+          return _PaniniLayout(
             section: section,
             onTap: (st) async {
               HapticFeedback.lightImpact();
@@ -55,154 +78,217 @@ class NationDetailPage extends ConsumerWidget {
   }
 }
 
-class _NationDetailBody extends StatelessWidget {
+class _PaniniLayout extends StatelessWidget {
   final AlbumSection section;
   final void Function(StickerView) onTap;
   final void Function(StickerView) onLongPress;
 
-  const _NationDetailBody({
+  const _PaniniLayout({
     required this.section,
     required this.onTap,
     required this.onLongPress,
   });
 
+  static const _gap = 8.0;
+  static const _hpad = 12.0;
+
   @override
   Widget build(BuildContext context) {
-    final ordered = [...section.stickers]
-      ..sort((a, b) => a.positionInPage.compareTo(b.positionInPage));
+    final byPosition = {for (final s in section.stickers) s.positionInPage: s};
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(child: _DecorativeHeader(section: section)),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
-          sliver: SliverToBoxAdapter(
-            child: StaggeredGrid.count(
-              crossAxisCount: 4,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              children: [
-                for (final st in ordered)
-                  StaggeredGridTile.count(
-                    crossAxisCellCount: _isTeamPhoto(st) ? 2 : 1,
-                    mainAxisCellCount: _isTeamPhoto(st) ? 1 : (4 / 3),
-                    child: StickerCard(
-                      key: ValueKey('detail-${st.id}'),
-                      sticker: st,
-                      onTap: () => onTap(st),
-                      onLongPress: () => onLongPress(st),
-                      aspectRatio: _isTeamPhoto(st) ? 2 / 1 : 3 / 4,
-                    ),
-                  ),
-              ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(_hpad, _hpad, _hpad, 24),
+      child: LayoutBuilder(builder: (ctx, constraints) {
+        final cell = (constraints.maxWidth - 3 * _gap) / 4;
+        final cellH = cell * 4 / 3; // portrait
+
+        Widget tile(int idx, {double? width, double? height, bool landscape = false}) {
+          final st = byPosition[idx];
+          final w = width ?? cell;
+          final h = height ?? cellH;
+          if (st == null) {
+            return SizedBox(width: w, height: h);
+          }
+          return SizedBox(
+            width: w,
+            height: h,
+            child: StickerCard(
+              key: ValueKey('detail-${st.id}'),
+              sticker: st,
+              onTap: () => onTap(st),
+              onLongPress: () => onLongPress(st),
+              aspectRatio: landscape ? (w / h) : (3 / 4),
             ),
-          ),
-        ),
-      ],
-    );
-  }
+          );
+        }
 
-  /// Position 12 (= sticker #13) is the team photo for every nation in the
-  /// 2026 Panini album. We infer it from position rather than type so the
-  /// layout is correct even for collections seeded before the type fix.
-  bool _isTeamPhoto(StickerView st) => st.positionInPage == 12 || st.type == 'team_photo';
-}
+        // Two columns of stickers #1 and #2 stacked next to the 2x2 header.
+        final headerW = 2 * cell + _gap;
+        final headerH = 2 * cellH + _gap;
 
-class _DecorativeHeader extends StatelessWidget {
-  final AlbumSection section;
-  const _DecorativeHeader({required this.section});
-
-  @override
-  Widget build(BuildContext context) {
-    final name = _nameFromTitle(section.title);
-    final progress = section.totalCount == 0
-        ? 0.0
-        : section.ownedCount / section.totalCount;
-    final iso = paniniToIso2[section.key];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppTheme.seed, AppTheme.seed.withValues(alpha: 0.72)],
-          ),
-          borderRadius: BorderRadius.circular(22),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-        child: Column(
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'WE ARE',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 13,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              name.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 38,
-                height: 1,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -1,
-              ),
-            ),
-            const SizedBox(height: 14),
+            // ── PÁGINA 1 ─────────────────────────────────────────
+            //  ROW: HEADER (2×2)  |  #1  |  #2
+            //                      |  --  |  --
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (iso != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: CountryFlag.fromCountryCode(iso, width: 44, height: 30),
-                  )
-                else
-                  const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _confederation(section.key, name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      height: 1.25,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                _HeaderBlock(
+                  width: headerW,
+                  height: headerH,
+                  section: section,
+                ),
+                const SizedBox(width: _gap),
+                Column(
+                  children: [
+                    tile(0), // #1
+                    const SizedBox(height: _gap),
+                    SizedBox(width: cell, height: cellH), // empty
+                  ],
+                ),
+                const SizedBox(width: _gap),
+                Column(
+                  children: [
+                    tile(1), // #2
+                    const SizedBox(height: _gap),
+                    SizedBox(width: cell, height: cellH), // empty
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: _gap),
+            // ROW: #3 #4 #5 #6
+            _rowOf4(tile, 2, _gap),
+            const SizedBox(height: _gap),
+            // ROW: #7 #8 #9 #10
+            _rowOf4(tile, 6, _gap),
+            const SizedBox(height: _gap * 2),
+            const _PageDivider(),
+            const SizedBox(height: _gap * 2),
+            // ── PÁGINA 2 ─────────────────────────────────────────
+            // ROW: #11 #12 [#13 landscape 2×1]
             Row(
               children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 8,
-                      backgroundColor: Colors.white.withValues(alpha: 0.25),
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text('${section.ownedCount}/${section.totalCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    )),
+                tile(10), // #11
+                const SizedBox(width: _gap),
+                tile(11), // #12
+                const SizedBox(width: _gap),
+                tile(12, width: 2 * cell + _gap, height: cellH, landscape: true),
+              ],
+            ),
+            const SizedBox(height: _gap),
+            // ROW: #14 #15 #16 #17
+            _rowOf4(tile, 13, _gap),
+            const SizedBox(height: _gap),
+            // ROW: [GROUP info] #18 #19 #20
+            Row(
+              children: [
+                _GroupBlock(width: cell, height: cellH, section: section),
+                const SizedBox(width: _gap),
+                tile(17), // #18
+                const SizedBox(width: _gap),
+                tile(18), // #19
+                const SizedBox(width: _gap),
+                tile(19), // #20
               ],
             ),
           ],
+        );
+      }),
+    );
+  }
+
+  Widget _rowOf4(Widget Function(int) tile, int startPos, double gap) {
+    return Row(
+      children: [
+        tile(startPos),
+        SizedBox(width: gap),
+        tile(startPos + 1),
+        SizedBox(width: gap),
+        tile(startPos + 2),
+        SizedBox(width: gap),
+        tile(startPos + 3),
+      ],
+    );
+  }
+}
+
+class _HeaderBlock extends StatelessWidget {
+  final double width;
+  final double height;
+  final AlbumSection section;
+  const _HeaderBlock({required this.width, required this.height, required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    final iso = paniniToIso2[section.key];
+    final name = _nameFromTitle(section.title);
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.seed, AppTheme.seed.withValues(alpha: 0.7)],
         ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('WE ARE',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 11,
+                letterSpacing: 1.5,
+                fontWeight: FontWeight.w800,
+              )),
+          const SizedBox(height: 2),
+          Expanded(
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                name.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 38,
+                  height: 0.95,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              if (iso != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: CountryFlag.fromCountryCode(iso, width: 30, height: 22),
+                ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Confederação · $name',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -212,12 +298,73 @@ class _DecorativeHeader extends StatelessWidget {
     if (idx < 0) return title;
     return title.substring(idx + 1).trim();
   }
+}
 
-  static String _confederation(String code, String name) {
-    // Short non-licensed descriptor. Free to replace by the real federation
-    // name once Panini publishes it for every nation.
-    if (code == 'FWC') return 'FIFA · Especiais';
-    return 'Confederação de Futebol · $name';
+class _GroupBlock extends StatelessWidget {
+  final double width;
+  final double height;
+  final AlbumSection section;
+  const _GroupBlock({required this.width, required this.height, required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppTheme.slotSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.slot.withValues(alpha: 0.4)),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('GRUPO',
+              style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.2,
+                color: AppTheme.inkSoft,
+                fontWeight: FontWeight.w700,
+              )),
+          const SizedBox(height: 4),
+          const Text(
+            '—',
+            style: TextStyle(
+                fontSize: 24, fontWeight: FontWeight.w900, color: AppTheme.ink),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            section.key,
+            style: const TextStyle(
+                fontSize: 10, color: AppTheme.inkSoft, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageDivider extends StatelessWidget {
+  const _PageDivider();
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(thickness: 1)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text('FIFA WORLD CUP 2026',
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 1.4,
+                color: AppTheme.inkSoft.withValues(alpha: 0.7),
+                fontWeight: FontWeight.w700,
+              )),
+        ),
+        const Expanded(child: Divider(thickness: 1)),
+      ],
+    );
   }
 }
 
