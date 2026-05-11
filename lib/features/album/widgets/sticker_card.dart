@@ -14,14 +14,17 @@ class StickerCard extends StatelessWidget {
   final StickerView sticker;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final double aspectRatio;
+  // When non-null the card wraps itself in an AspectRatio. When null (the
+  // default in callers that already provide a fixed SizedBox) the card fills
+  // its parent so no extra rounding shrinks the slot.
+  final double? aspectRatio;
 
   const StickerCard({
     super.key,
     required this.sticker,
     required this.onTap,
     required this.onLongPress,
-    this.aspectRatio = 3 / 4,
+    this.aspectRatio,
   });
 
   @override
@@ -38,7 +41,122 @@ class StickerCard extends StatelessWidget {
     final headerText = sticker.nationCode ?? 'FWC';
     final numericPart = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
 
-    return GestureDetector(
+    final stack = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: owned ? null : AppTheme.slotSoft,
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(14),
+              border: owned
+                  ? null
+                  : Border.all(color: AppTheme.slot.withValues(alpha: 0.4), width: 1),
+              boxShadow: owned
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: LayoutBuilder(builder: (ctx, c) {
+              final w = c.maxWidth;
+              final headerFs = (w * 0.13).clamp(8.0, 12.0);
+              final numFs = (w * 0.34).clamp(18.0, 28.0);
+              final labelFs = (w * 0.10).clamp(8.0, 11.0);
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    headerText,
+                    style: TextStyle(
+                      fontSize: headerFs,
+                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w600,
+                      color: owned
+                          ? Colors.white.withValues(alpha: 0.9)
+                          : AppTheme.inkSoft,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '#$numericPart',
+                    style: TextStyle(
+                      fontSize: numFs,
+                      fontWeight: FontWeight.w800,
+                      color: owned ? Colors.white : AppTheme.ink,
+                      shadows: owned
+                          ? [const Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))]
+                          : null,
+                    ),
+                  ),
+                  if (sticker.label.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        sticker.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: labelFs,
+                          height: 1.15,
+                          color: owned
+                              ? Colors.white.withValues(alpha: 0.95)
+                              : AppTheme.inkSoft,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    )
+                  else
+                    SizedBox(height: labelFs + 2),
+                ],
+              );
+            }),
+          ),
+        ),
+        if (sticker.status == StickerOwnership.duplicate)
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTheme.seed,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              constraints: const BoxConstraints(minWidth: 26),
+              child: Text(
+                '${sticker.duplicateCount}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+
+    final card = GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
@@ -47,124 +165,17 @@ class StickerCard extends StatelessWidget {
         HapticFeedback.mediumImpact();
         onLongPress();
       },
-      child: AspectRatio(
-        aspectRatio: aspectRatio,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              decoration: BoxDecoration(
-                color: owned ? null : AppTheme.slotSoft,
-                gradient: gradient,
-                borderRadius: BorderRadius.circular(14),
-                border: owned
-                    ? null
-                    : Border.all(color: AppTheme.slot.withValues(alpha: 0.4), width: 1),
-                boxShadow: owned
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.10),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-              child: LayoutBuilder(builder: (ctx, c) {
-                // Sizes proportional to card width so #1, #2, ... #20 all
-                // share the exact same visual treatment regardless of digits.
-                final w = c.maxWidth;
-                final headerFs = (w * 0.13).clamp(8.0, 12.0);
-                final numFs = (w * 0.34).clamp(18.0, 28.0);
-                final labelFs = (w * 0.10).clamp(8.0, 11.0);
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      headerText,
-                      style: TextStyle(
-                        fontSize: headerFs,
-                        letterSpacing: 0.5,
-                        fontWeight: FontWeight.w600,
-                        color: owned
-                            ? Colors.white.withValues(alpha: 0.9)
-                            : AppTheme.inkSoft,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '#$numericPart',
-                      style: TextStyle(
-                        fontSize: numFs,
-                        fontWeight: FontWeight.w800,
-                        color: owned ? Colors.white : AppTheme.ink,
-                        shadows: owned
-                            ? [const Shadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))]
-                            : null,
-                      ),
-                    ),
-                    if (sticker.label.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          sticker.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: labelFs,
-                            height: 1.15,
-                            color: owned
-                                ? Colors.white.withValues(alpha: 0.95)
-                                : AppTheme.inkSoft,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      )
-                    else
-                      SizedBox(height: labelFs + 2),
-                  ],
-                );
-              }),
-            ),
-            if (sticker.status == StickerOwnership.duplicate)
-              Positioned(
-                top: -6,
-                right: -6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.seed,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  constraints: const BoxConstraints(minWidth: 26),
-                  child: Text(
-                    '${sticker.duplicateCount}',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
+      child: stack,
     );
+
+    // Caller may not constrain us (e.g. inside a GridView): wrap with the
+    // requested AspectRatio in that case. When the parent does constrain us
+    // (NationDetailPage uses fixed SizedBoxes), skip AspectRatio so sub-pixel
+    // rounding never shrinks one cell vs another.
+    if (aspectRatio != null) {
+      return AspectRatio(aspectRatio: aspectRatio!, child: card);
+    }
+    return card;
   }
 }
 

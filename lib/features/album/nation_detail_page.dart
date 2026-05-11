@@ -117,7 +117,8 @@ class _PaniniLayout extends StatelessWidget {
               sticker: st,
               onTap: () => onTap(st),
               onLongPress: () => onLongPress(st),
-              aspectRatio: landscape ? (w / h) : (3 / 4),
+              // aspectRatio null: card fills the SizedBox exactly, no internal
+              // AspectRatio that could shrink it by sub-pixel rounding.
             ),
           );
         }
