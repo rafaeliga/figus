@@ -23,68 +23,88 @@ import 'widgets/sticker_card.dart';
 ///   ├──┼───┼──────┼───┤      │   │      │      │      │      │
 ///   │#7│#8 │ #9   │#10│      │   └──────┴──────┴──────┴──────┘
 ///   └──┴───┴──────┴───┘
-class NationDetailPage extends ConsumerWidget {
+class NationDetailPage extends ConsumerStatefulWidget {
   final String code;
   const NationDetailPage({super.key, required this.code});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncSection = ref.watch(_nationSectionProvider(code));
+  ConsumerState<NationDetailPage> createState() => _NationDetailPageState();
+}
+
+class _NationDetailPageState extends ConsumerState<NationDetailPage> {
+  final _scrollCtrl = ScrollController();
+  // Cache of the last successfully-loaded section so a tap doesn't show a
+  // loading spinner that would also drop the scroll position.
+  AlbumSection? _cached;
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final asyncSection = ref.watch(_nationSectionProvider(widget.code));
+    if (asyncSection.hasValue && asyncSection.value != null) {
+      _cached = asyncSection.value;
+    }
+    final section = asyncSection.value ?? _cached;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(code),
+        title: Text(widget.code),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: asyncSection.maybeWhen(
-              data: (s) => s == null
-                  ? const SizedBox.shrink()
-                  : Center(
-                      child: Text('${s.ownedCount}/${s.totalCount}',
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-              orElse: () => const SizedBox.shrink(),
+          if (section != null && section.totalCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: Text('${section.ownedCount}/${section.totalCount}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
             ),
-          ),
         ],
       ),
-      body: asyncSection.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erro: $e')),
-        data: (section) {
-          if (section == null || section.totalCount == 0) {
-            return const Center(child: Text('Seleção não encontrada'));
-          }
-          return _PaniniLayout(
-            section: section,
-            onTap: (st) async {
-              HapticFeedback.lightImpact();
-              await ref.read(collectionRepoProvider).tapSticker(st.id);
-              ref.read(collectionVersionProvider.notifier).state++;
-            },
-            onLongPress: (st) async {
-              HapticFeedback.mediumImpact();
-              await ref.read(collectionRepoProvider).removeSticker(st.id);
-              ref.read(collectionVersionProvider.notifier).state++;
-            },
-          );
-        },
-      ),
+      body: _buildBody(asyncSection, section),
+    );
+  }
+
+  Widget _buildBody(AsyncValue<AlbumSection?> async, AlbumSection? section) {
+    if (section == null || section.totalCount == 0) {
+      if (async.isLoading) return const Center(child: CircularProgressIndicator());
+      if (async.hasError) return Center(child: Text('Erro: ${async.error}'));
+      return const Center(child: Text('Seleção não encontrada'));
+    }
+    return _PaniniLayout(
+      scrollController: _scrollCtrl,
+      section: section,
+      onTap: (st) async {
+        HapticFeedback.lightImpact();
+        await ref.read(collectionRepoProvider).tapSticker(st.id);
+        ref.read(collectionVersionProvider.notifier).state++;
+      },
+      onLongPress: (st) async {
+        HapticFeedback.mediumImpact();
+        await ref.read(collectionRepoProvider).removeSticker(st.id);
+        ref.read(collectionVersionProvider.notifier).state++;
+      },
     );
   }
 }
 
 class _PaniniLayout extends StatelessWidget {
   final AlbumSection section;
+  final ScrollController scrollController;
   final void Function(StickerView) onTap;
   final void Function(StickerView) onLongPress;
 
   const _PaniniLayout({
     required this.section,
+    required this.scrollController,
     required this.onTap,
     required this.onLongPress,
   });
@@ -97,6 +117,8 @@ class _PaniniLayout extends StatelessWidget {
     final byPosition = {for (final s in section.stickers) s.positionInPage: s};
 
     return SingleChildScrollView(
+      key: const PageStorageKey('nation-detail-scroll'),
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(_hpad, _hpad, _hpad, 24),
       child: LayoutBuilder(builder: (ctx, constraints) {
         final cell = (constraints.maxWidth - 3 * _gap) / 4;
