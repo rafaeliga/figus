@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/db/database.dart' show CollectionsCompanion;
 import '../../data/providers.dart';
+import 'pdf_image_extractor.dart';
 
 /// Bulk import: user picks many image files at once from the device and the
 /// app maps them onto sticker slots by *file order* (alphabetical) — they
@@ -40,8 +41,14 @@ class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
             const _HowItWorks(),
             const SizedBox(height: 24),
             FilledButton.icon(
-              icon: const Icon(Icons.upload_rounded),
-              label: Text(_busy ? 'Importando...' : 'Selecionar imagens'),
+              icon: const Icon(Icons.picture_as_pdf_rounded),
+              label: Text(_busy ? 'Processando...' : 'Selecionar PDF'),
+              onPressed: _busy ? null : _pickAndImportPdf,
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(_busy ? 'Importando...' : 'Selecionar imagens soltas'),
               onPressed: _busy ? null : _pickAndImport,
             ),
             if (_lastSummary != null) ...[
@@ -71,6 +78,52 @@ class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickAndImportPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: true,
+    );
+    if (result == null || result.files.single.bytes == null) return;
+    setState(() {
+      _busy = true;
+      _lastSummary = 'Extraindo imagens do PDF...';
+    });
+    try {
+      final pdfBytes = result.files.single.bytes!;
+      final jpegs = await Future(() => PdfImageExtractor.extractJpegs(pdfBytes));
+      if (jpegs.isEmpty) {
+        setState(() => _lastSummary = 'Nenhuma imagem JPEG extraível neste PDF.');
+        return;
+      }
+
+      final db = ref.read(databaseProvider);
+      final repo = ref.read(collectionRepoProvider);
+      final stickers = await (db.select(db.stickers)
+            ..orderBy([
+              (s) => OrderingTerm.asc(s.pageNumber),
+              (s) => OrderingTerm.asc(s.positionInPage),
+            ]))
+          .get();
+
+      // Sequential mapping: imagem N → slot N (na ordem do álbum).
+      final n = jpegs.length < stickers.length ? jpegs.length : stickers.length;
+      for (var i = 0; i < n; i++) {
+        await repo.setCustomImage(stickers[i].id, jpegs[i]);
+      }
+      ref.read(collectionVersionProvider.notifier).state++;
+
+      setState(() {
+        _lastSummary = 'PDF processado: ${jpegs.length} imagens extraídas, '
+            '$n mapeadas em sequência.';
+      });
+    } catch (e) {
+      setState(() => _lastSummary = 'Erro: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _pickAndImport() async {
@@ -231,18 +284,20 @@ class _HowItWorks extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Como extrair do PDF',
+          Text('Como funciona',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
           SizedBox(height: 8),
-          _Step('1.', 'No computador, abra terminal na pasta do PDF.'),
-          _Step('2.', 'Rode: pdfimages -j album.pdf img'),
-          _Step('3.', 'Vão aparecer arquivos img-000.jpg, img-001.jpg…'),
-          _Step('4.', 'Renomeie pra ABV+nº (ex: BRA1.jpg, BRA2.jpg) — opcional, mas ajuda o mapeamento'),
-          _Step('5.', 'Volte aqui e toque "Selecionar imagens".'),
+          _Step('PDF',
+              'Selecione o arquivo do álbum. O app extrai as imagens JPEG '
+              'embebidas e mapeia em ordem (1ª imagem → 1ª figurinha do '
+              'álbum, 2ª → 2ª, e assim por diante).'),
+          _Step('Imagens',
+              'Como alternativa, selecione arquivos soltos (BRA1.jpg, BRA2.jpg…). '
+              'O app casa por nome quando puder; senão por ordem alfabética.'),
           SizedBox(height: 8),
           Text(
-            'Mapeamento: o app casa por nome quando possível (BRA10.jpg → '
-            'figurinha BRA10) e usa ordem alfabética como fallback.',
+            'Tudo é processado localmente no seu device. Nada é enviado pra '
+            'servidor.',
             style: TextStyle(fontSize: 12, color: AppTheme.inkSoft),
           ),
         ],
