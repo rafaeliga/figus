@@ -7,6 +7,7 @@ import 'core/theme/app_theme.dart';
 import 'features/album/album_page.dart';
 import 'features/album/nation_detail_page.dart';
 import 'features/duplicates/duplicates_page.dart';
+import 'features/import/bulk_images_import_page.dart';
 import 'features/import/figuritas_import_page.dart';
 import 'features/onboarding/onboarding_page.dart';
 import 'features/profiles/profiles_page.dart';
@@ -53,6 +54,7 @@ class FigusApp extends ConsumerWidget {
         GoRoute(path: '/progress', builder: (_, __) => const StatsPage()),
         GoRoute(path: '/profiles', builder: (_, __) => const ProfilesPage()),
         GoRoute(path: '/import', builder: (_, __) => const FiguritasImportPage()),
+        GoRoute(path: '/import-images', builder: (_, __) => const BulkImagesImportPage()),
         GoRoute(path: '/upgrade', builder: (_, __) => const UpgradePage()),
       ],
     );

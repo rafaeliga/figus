@@ -32,6 +32,12 @@ class YouPage extends ConsumerWidget {
             title: 'Sua coleção',
             tiles: [
               _Tile(
+                icon: Icons.photo_library_rounded,
+                title: 'Importar imagens do álbum',
+                subtitle: 'Em lote (do PDF ou pasta de imagens)',
+                onTap: () => context.push('/import-images'),
+              ),
+              _Tile(
                 icon: Icons.file_upload_rounded,
                 title: 'Importar do Figuritas',
                 subtitle: 'Foto, screenshot ou lista colada',

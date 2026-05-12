@@ -1,5 +1,4 @@
 import 'package:country_flags/country_flags.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,68 +89,10 @@ class _NationDetailPageState extends ConsumerState<NationDetailPage> {
       },
       onLongPress: (st) async {
         HapticFeedback.mediumImpact();
-        await _showActionsSheet(st);
+        await ref.read(collectionRepoProvider).removeSticker(st.id);
+        ref.read(collectionVersionProvider.notifier).state++;
       },
     );
-  }
-
-  Future<void> _showActionsSheet(StickerView st) async {
-    final hasImage = st.customImage != null;
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetCtx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(st.number,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            ),
-            if (st.status != StickerOwnership.missing)
-              ListTile(
-                leading: const Icon(Icons.remove_circle_outline_rounded),
-                title: const Text('Remover 1 cópia'),
-                onTap: () => Navigator.pop(sheetCtx, 'remove'),
-              ),
-            ListTile(
-              leading: Icon(hasImage ? Icons.edit_rounded : Icons.add_photo_alternate_rounded),
-              title: Text(hasImage ? 'Trocar foto' : 'Adicionar foto'),
-              subtitle: const Text('Use imagem do seu dispositivo'),
-              onTap: () => Navigator.pop(sheetCtx, 'photo'),
-            ),
-            if (hasImage)
-              ListTile(
-                leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('Apagar foto'),
-                onTap: () => Navigator.pop(sheetCtx, 'clear_photo'),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (action == null || !mounted) return;
-    final repo = ref.read(collectionRepoProvider);
-    switch (action) {
-      case 'remove':
-        await repo.removeSticker(st.id);
-        break;
-      case 'photo':
-        final pick = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          withData: true,
-        );
-        if (pick != null && pick.files.single.bytes != null) {
-          await repo.setCustomImage(st.id, pick.files.single.bytes!);
-        }
-        break;
-      case 'clear_photo':
-        await repo.clearCustomImage(st.id);
-        break;
-    }
-    ref.read(collectionVersionProvider.notifier).state++;
   }
 }
 
