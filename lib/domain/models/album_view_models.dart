@@ -2,6 +2,8 @@
 /// so the widget tree never imports the database.
 library;
 
+import 'dart:typed_data';
+
 enum StickerOwnership { missing, owned, duplicate }
 
 class StickerView {
@@ -15,6 +17,7 @@ class StickerView {
   final String? nationCode;
   final StickerOwnership status;
   final int duplicateCount;
+  final Uint8List? customImage;
 
   const StickerView({
     required this.id,
@@ -27,6 +30,7 @@ class StickerView {
     required this.nationCode,
     required this.status,
     required this.duplicateCount,
+    this.customImage,
   });
 }
 

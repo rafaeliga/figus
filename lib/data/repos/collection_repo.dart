@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/drift.dart';
 
 import '../db/database.dart';
@@ -51,6 +53,34 @@ class CollectionRepo {
       // already duplicate → +1
       await _upsert(pid, stickerId, 'duplicate', e.duplicateCount + 1);
     }
+  }
+
+  Future<void> setCustomImage(int stickerId, Uint8List bytes) async {
+    final pid = await _activeProfileId();
+    final existing = await _entry(pid, stickerId);
+    if (existing == null) {
+      await db.into(db.collections).insert(CollectionsCompanion.insert(
+            profileId: pid,
+            stickerId: stickerId,
+            customImage: Value(bytes),
+          ));
+    } else {
+      await (db.update(db.collections)..where((c) => c.id.equals(existing.id))).write(
+        CollectionsCompanion(
+          customImage: Value(bytes),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
+  }
+
+  Future<void> clearCustomImage(int stickerId) async {
+    final pid = await _activeProfileId();
+    final existing = await _entry(pid, stickerId);
+    if (existing == null) return;
+    await (db.update(db.collections)..where((c) => c.id.equals(existing.id))).write(
+      const CollectionsCompanion(customImage: Value(null)),
+    );
   }
 
   /// Long press: removes ONE copy.

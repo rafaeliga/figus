@@ -41,21 +41,44 @@ class StickerCard extends StatelessWidget {
     final headerText = sticker.nationCode ?? 'FWC';
     final numericPart = sticker.number.replaceAll(RegExp(r'^[A-Z]+'), '');
 
+    final hasCustomImage = sticker.customImage != null;
     final stack = Stack(
       clipBehavior: Clip.none,
       children: [
+        if (hasCustomImage)
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: ColorFiltered(
+                // Missing slot → wash to grey-scale to hint "you don't have it yet".
+                colorFilter: owned
+                    ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
+                    : const ColorFilter.matrix([
+                        0.7, 0.7, 0.7, 0, 0,
+                        0.7, 0.7, 0.7, 0, 0,
+                        0.7, 0.7, 0.7, 0, 0,
+                        0, 0, 0, 0.55, 0,
+                      ]),
+                child: Image.memory(
+                  sticker.customImage!,
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                ),
+              ),
+            ),
+          ),
         Positioned.fill(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: owned ? null : AppTheme.slotSoft,
-              gradient: gradient,
+              color: hasCustomImage ? Colors.transparent : (owned ? null : AppTheme.slotSoft),
+              gradient: hasCustomImage ? null : gradient,
               borderRadius: BorderRadius.circular(14),
-              border: owned
+              border: (owned || hasCustomImage)
                   ? null
                   : Border.all(color: AppTheme.slot.withValues(alpha: 0.4), width: 1),
-              boxShadow: owned
+              boxShadow: owned && !hasCustomImage
                   ? [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.10),
@@ -71,6 +94,28 @@ class StickerCard extends StatelessWidget {
               final headerFs = (w * 0.13).clamp(8.0, 12.0);
               final numFs = (w * 0.34).clamp(18.0, 28.0);
               final labelFs = (w * 0.10).clamp(8.0, 11.0);
+              if (hasCustomImage) {
+                // With a user-provided image we keep only a tiny corner badge
+                // so the image isn't covered by big placeholder text.
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '$headerText $numericPart',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: headerFs,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              }
               return Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,

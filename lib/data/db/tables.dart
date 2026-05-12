@@ -46,6 +46,10 @@ class Collections extends Table {
   IntColumn get stickerId => integer().references(Stickers, #id)();
   TextColumn get status => text().withDefault(const Constant('missing'))(); // missing|owned|duplicate
   IntColumn get duplicateCount => integer().withDefault(const Constant(0))();
+  // Optional user-provided image bytes (PNG/JPG). Personal use only — the
+  // user supplies the file from their device; the app never embeds copyrighted
+  // assets by default.
+  BlobColumn get customImage => blob().nullable()();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
