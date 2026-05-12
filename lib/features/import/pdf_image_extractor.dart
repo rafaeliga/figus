@@ -1,61 +1,90 @@
 import 'dart:typed_data';
 
-/// Minimal PDF parser that pulls out JPEG (`/DCTDecode`) image streams in the
-/// order they appear in the file.
+/// Minimal PDF parser that pulls out JPEG (`/DCTDecode`) image streams.
 ///
-/// Works for PDFs where the embedded images are stored as raw JPEG streams
-/// (the common case for editorial PDFs). It does NOT handle encrypted PDFs,
-/// FlateDecode-compressed image streams, or non-JPEG image filters.
-///
-/// All processing is in-memory and happens on the user's own device.
+/// Operates on raw bytes (no giant `String.fromCharCodes` that would blow
+/// memory on an 80MB+ PDF). Periodically yields to the event loop via the
+/// optional [onProgress] callback so the UI can render a progress bar.
 class PdfImageExtractor {
-  static List<Uint8List> extractJpegs(Uint8List pdfBytes) {
+  /// "/DCTDecode" as ASCII bytes.
+  static final _dct = Uint8List.fromList('/DCTDecode'.codeUnits);
+  static final _stream = Uint8List.fromList('stream'.codeUnits);
+  static final _endStream = Uint8List.fromList('endstream'.codeUnits);
+
+  static Future<List<Uint8List>> extractJpegs(
+    Uint8List bytes, {
+    void Function(double pct, String message)? onProgress,
+  }) async {
     final out = <Uint8List>[];
-    // Treat the PDF as latin1 so byte offsets align 1:1 with string indices.
-    final view = String.fromCharCodes(pdfBytes);
+    final total = bytes.length;
+    var cursor = 0;
+    var lastYield = 0;
 
-    // Match /Filter /DCTDecode in any of its common forms:
-    //   /Filter /DCTDecode
-    //   /Filter[/DCTDecode]
-    //   /Filter /DCTDecode/...
-    final pattern = RegExp(
-      r'/Filter\s*\[?\s*(?:/DCTDecode|/DCT)\b',
-      caseSensitive: true,
-    );
+    while (cursor < total) {
+      final dctAt = _indexOf(bytes, _dct, cursor);
+      if (dctAt < 0) break;
 
-    for (final match in pattern.allMatches(view)) {
-      final streamWord = view.indexOf('stream', match.end);
-      if (streamWord < 0 || streamWord - match.end > 4000) continue;
-      var dataStart = streamWord + 'stream'.length;
-      if (dataStart < view.length && view.codeUnitAt(dataStart) == 0x0D) dataStart++;
-      if (dataStart < view.length && view.codeUnitAt(dataStart) == 0x0A) dataStart++;
+      final streamAt = _indexOf(bytes, _stream, dctAt + _dct.length);
+      if (streamAt < 0) break;
+      if (streamAt - dctAt > 4000) {
+        cursor = dctAt + _dct.length;
+        continue;
+      }
+      var dataStart = streamAt + _stream.length;
+      // strip the optional CR/LF after "stream"
+      if (dataStart < total && bytes[dataStart] == 0x0D) dataStart++;
+      if (dataStart < total && bytes[dataStart] == 0x0A) dataStart++;
 
-      final endStream = view.indexOf('endstream', dataStart);
-      if (endStream < 0) continue;
-      var dataEnd = endStream;
-      while (dataEnd > dataStart &&
-          (view.codeUnitAt(dataEnd - 1) == 0x0A ||
-              view.codeUnitAt(dataEnd - 1) == 0x0D)) {
+      final endAt = _indexOf(bytes, _endStream, dataStart);
+      if (endAt < 0) break;
+      var dataEnd = endAt;
+      while (dataEnd > dataStart && (bytes[dataEnd - 1] == 0x0A || bytes[dataEnd - 1] == 0x0D)) {
         dataEnd--;
       }
 
-      // Validate JPEG markers: SOI (0xFF 0xD8) at start, EOI (0xFF 0xD9) at end.
-      if (dataEnd - dataStart < 4) continue;
-      if (pdfBytes[dataStart] != 0xFF || pdfBytes[dataStart + 1] != 0xD8) continue;
-      // Find the last 0xFF 0xD9 inside the slice (some streams have trailing
-      // padding before endstream).
+      cursor = endAt + _endStream.length;
+
+      // Validate JPEG envelope.
+      if (dataEnd - dataStart < 2048) continue;
+      if (bytes[dataStart] != 0xFF || bytes[dataStart + 1] != 0xD8) continue;
       var eoi = dataEnd - 2;
       while (eoi > dataStart) {
-        if (pdfBytes[eoi] == 0xFF && pdfBytes[eoi + 1] == 0xD9) break;
+        if (bytes[eoi] == 0xFF && bytes[eoi + 1] == 0xD9) break;
         eoi--;
       }
       if (eoi <= dataStart) continue;
 
-      final jpeg = Uint8List.sublistView(pdfBytes, dataStart, eoi + 2);
-      // Skip thumbnails / tiny masks — usually under 2KB.
-      if (jpeg.length < 2048) continue;
-      out.add(jpeg);
+      out.add(Uint8List.sublistView(bytes, dataStart, eoi + 2));
+
+      // Yield to the event loop every ~5MB so the UI can repaint.
+      if (cursor - lastYield > 5 * 1024 * 1024) {
+        lastYield = cursor;
+        onProgress?.call(cursor / total, 'Lendo PDF… ${out.length} imagens encontradas');
+        await Future<void>.delayed(Duration.zero);
+      }
     }
+    onProgress?.call(1.0, 'Lidas ${out.length} imagens');
     return out;
+  }
+
+  /// Boyer-Moore-Horspool would be faster, but a plain forward scan over
+  /// 80MB takes a few hundred ms in JS — good enough.
+  static int _indexOf(Uint8List haystack, Uint8List needle, int from) {
+    final n = needle.length;
+    final last = haystack.length - n;
+    if (from > last) return -1;
+    final first = needle[0];
+    for (var i = from; i <= last; i++) {
+      if (haystack[i] != first) continue;
+      var match = true;
+      for (var j = 1; j < n; j++) {
+        if (haystack[i + j] != needle[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return i;
+    }
+    return -1;
   }
 }

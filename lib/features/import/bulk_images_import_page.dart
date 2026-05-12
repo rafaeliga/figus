@@ -26,6 +26,8 @@ class BulkImagesImportPage extends ConsumerStatefulWidget {
 class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
   bool _busy = false;
   String? _lastSummary;
+  String? _progressMessage;
+  double _progress = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +53,27 @@ class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
               label: Text(_busy ? 'Importando...' : 'Selecionar imagens soltas'),
               onPressed: _busy ? null : _pickAndImport,
             ),
-            if (_lastSummary != null) ...[
+            if (_busy && _progressMessage != null) ...[
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(_progressMessage!,
+                      style: const TextStyle(fontSize: 13, color: AppTheme.inkSoft)),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: _progress > 0 ? _progress : null,
+                      minHeight: 6,
+                      backgroundColor: AppTheme.slotSoft,
+                      color: AppTheme.seed,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (!_busy && _lastSummary != null) ...[
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(14),
@@ -81,23 +103,57 @@ class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
   }
 
   Future<void> _pickAndImportPdf() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      withData: true,
-    );
-    if (result == null || result.files.single.bytes == null) return;
     setState(() {
       _busy = true;
-      _lastSummary = 'Extraindo imagens do PDF...';
+      _lastSummary = null;
+      _progress = 0;
+      _progressMessage = 'Abrindo arquivo...';
     });
     try {
-      final pdfBytes = result.files.single.bytes!;
-      final jpegs = await Future(() => PdfImageExtractor.extractJpegs(pdfBytes));
-      if (jpegs.isEmpty) {
-        setState(() => _lastSummary = 'Nenhuma imagem JPEG extraível neste PDF.');
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+      if (result == null || result.files.single.bytes == null) {
+        setState(() {
+          _busy = false;
+          _progressMessage = null;
+        });
         return;
       }
+
+      final pdfBytes = result.files.single.bytes!;
+      setState(() {
+        _progressMessage = 'Lendo PDF (${(pdfBytes.length / 1024 / 1024).toStringAsFixed(1)} MB)…';
+      });
+      // Hand control back to the event loop so the spinner repaints.
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final jpegs = await PdfImageExtractor.extractJpegs(
+        pdfBytes,
+        onProgress: (pct, msg) {
+          if (!mounted) return;
+          setState(() {
+            _progress = pct;
+            _progressMessage = msg;
+          });
+        },
+      );
+
+      if (jpegs.isEmpty) {
+        setState(() {
+          _busy = false;
+          _progressMessage = null;
+          _lastSummary = 'Nenhuma imagem JPEG extraível neste PDF.';
+        });
+        return;
+      }
+
+      setState(() {
+        _progressMessage = 'Salvando ${jpegs.length} imagens...';
+        _progress = 0;
+      });
 
       final db = ref.read(databaseProvider);
       final repo = ref.read(collectionRepoProvider);
@@ -108,21 +164,33 @@ class _BulkImagesImportPageState extends ConsumerState<BulkImagesImportPage> {
             ]))
           .get();
 
-      // Sequential mapping: imagem N → slot N (na ordem do álbum).
       final n = jpegs.length < stickers.length ? jpegs.length : stickers.length;
       for (var i = 0; i < n; i++) {
         await repo.setCustomImage(stickers[i].id, jpegs[i]);
+        if (i % 25 == 0) {
+          setState(() {
+            _progress = i / n;
+            _progressMessage = 'Salvando $i/$n imagens...';
+          });
+          await Future<void>.delayed(Duration.zero);
+        }
       }
       ref.read(collectionVersionProvider.notifier).state++;
 
       setState(() {
+        _busy = false;
+        _progressMessage = null;
         _lastSummary = 'PDF processado: ${jpegs.length} imagens extraídas, '
             '$n mapeadas em sequência.';
       });
-    } catch (e) {
-      setState(() => _lastSummary = 'Erro: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+    } catch (e, st) {
+      setState(() {
+        _busy = false;
+        _progressMessage = null;
+        _lastSummary = 'Erro: $e';
+      });
+      // ignore: avoid_print
+      print('PDF import failed: $e\n$st');
     }
   }
 
