@@ -4,8 +4,8 @@ publish_to: 'none'
 version: 0.1.0+1
 
 environment:
-  sdk: ^3.5.0
-  flutter: ">=3.24.0"
+  sdk: ^3.6.0
+  flutter: ">=3.27.0"
 
 dependencies:
   flutter:
@@ -52,6 +52,7 @@ dependencies:
 
   # Capture widget tree as image for share cards
   screenshot: ^3.0.0
+  sqlite3_flutter_libs: ^0.5.42
 
 dev_dependencies:
   flutter_test:
