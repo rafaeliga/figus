@@ -48,6 +48,47 @@ flutter build appbundle --release     # AAB pra Google Play Console
 3. `adb install -r build/app/outputs/flutter-apk/app-release.apk`
 4. Ou copie o APK pra pasta Downloads do celular e instale tocando nele (precisa permitir "fontes desconhecidas")
 
+### Para rodar / buildar no iOS (macOS)
+
+Precisa de **Mac**, **Xcode** e **CocoaPods** (`sudo gem install cocoapods` ou via Homebrew). O bundle ID no iOS é o mesmo do Android: **`com.danielsampaio.figus`**.
+
+**Primeira vez ou repo sem pasta `ios/`:**
+
+```bash
+cd figus
+flutter create . --platforms=ios
+flutter pub get
+cd ios && pod install && cd ..
+```
+
+Abra **`ios/Runner.xcworkspace`** no Xcode (não o `.xcodeproj` sozinho), escolha um **Signing Team** no target Runner e rode no simulador ou no iPhone (`flutter run` com o device listado em `flutter devices`).
+
+**Build release no device** (com assinatura configurada no Xcode):
+
+```bash
+flutter build ios
+```
+
+Para só validar compilação sem assinar: `flutter build ios --no-codesign`.
+
+**Detalhes já aplicados neste projeto:**
+
+- **iOS mínimo 15.5** — exigido pelo `google_mlkit_text_recognition` (Podfile + deployment target do Xcode).
+- **`Info.plist`** — textos de uso para **câmera** (scan) e **biblioteca de fotos** (import); sem isso o sistema pode encerrar o app ao pedir permissão.
+- **Ícone iOS** — em `pubspec.yaml`, `flutter_launcher_icons` está com `ios: false`; para gerar ícones nativos, ponha `ios: true` e rode `dart run flutter_launcher_icons`.
+
+**Crash ao abrir pelo Xcode / mensagem tipo «Crash occurred when compiling … JIT mode»**
+
+Em **iPhone físico** com **iOS recente** (ex.: 18.4+ ou betas mais novas), o modo **Debug** do Flutter usa JIT e o sistema pode negar alteração de memória executável (`mprotect`), o que derruba o Dart VM — sintoma comum no Xcode é crash ao compilar em JIT.
+
+**Confirmado:** neste projeto, **`flutter run --release`** (ou Scheme **Release** no Xcode) no device físico **abre estável**; o problema some porque não há JIT.
+
+- Rode no device em **Release** ou **Profile**: `flutter run --release` ou `flutter run --profile` (sem hot reload, mas estável).
+- No Xcode: **Product → Scheme → Edit Scheme… → Run → Build Configuration → Release** (ou Profile).
+- Para desenvolvimento com **hot reload**, use o **Simulador iOS** (JIT permitido) ou mantenha um Flutter **stable atualizado** (`flutter upgrade`), pois o ecossistema vai acompanhando mudanças da Apple.
+
+Se o Flutter avisar que **`assets/seeds/`** não existe, crie a pasta vazia na raiz do projeto ou remova essa entrada do `pubspec.yaml` até haver arquivos lá.
+
 ## O que está pronto na Noite 1
 
 - ✅ 980 figurinhas seedadas (FWC + 48 seleções × 20)
