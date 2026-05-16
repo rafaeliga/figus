@@ -114,13 +114,48 @@ class _PaniniLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final byPosition = {for (final s in section.stickers) s.positionInPage: s};
-
     return SingleChildScrollView(
       key: const PageStorageKey('nation-detail-scroll'),
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(_hpad, _hpad, _hpad, 24),
-      child: LayoutBuilder(builder: (ctx, constraints) {
+      child: section.key == 'FWC' ? _fwcSpecialsBody() : _paniniNationBody(),
+    );
+  }
+
+  /// FWC spans two logical album pages but reuses `positionInPage` 0–8 on both;
+  /// indexing only by position collides and hides stickers — use a flat grid.
+  Widget _fwcSpecialsBody() {
+    final ordered = [...section.stickers]
+      ..sort((a, b) {
+        if (a.pageNumber != b.pageNumber) return a.pageNumber.compareTo(b.pageNumber);
+        return a.positionInPage.compareTo(b.positionInPage);
+      });
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: ordered.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 10,
+        childAspectRatio: 3 / 4,
+      ),
+      itemBuilder: (_, i) {
+        final st = ordered[i];
+        return StickerCard(
+          key: ValueKey('detail-${st.id}'),
+          sticker: st,
+          onTap: () => onTap(st),
+          onLongPress: () => onLongPress(st),
+        );
+      },
+    );
+  }
+
+  Widget _paniniNationBody() {
+    final byPosition = {for (final s in section.stickers) s.positionInPage: s};
+
+    return LayoutBuilder(builder: (ctx, constraints) {
         final cell = (constraints.maxWidth - 3 * _gap) / 4;
         final cellH = cell * 4 / 3; // portrait
 
@@ -204,8 +239,7 @@ class _PaniniLayout extends StatelessWidget {
             ),
           ],
         );
-      }),
-    );
+      });
   }
 
   Widget _rowOf4(Widget Function(int) tile, int startPos, double gap) {
