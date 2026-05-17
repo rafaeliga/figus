@@ -1,8 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../data/db/database_backup.dart';
 import '../../data/providers.dart';
 
 /// "Você" — replaces the Figuritas-style chapadão de itens by grouping things
@@ -43,16 +45,30 @@ class YouPage extends ConsumerWidget {
                 subtitle: 'Foto, screenshot ou lista colada',
                 onTap: () => context.push('/import'),
               ),
-              _Tile(
+              const _Tile(
                 icon: Icons.share_rounded,
                 title: 'Exportar coleção',
                 subtitle: 'Em breve — PDF/CSV',
                 onTap: null,
               ),
+              if (isNativeSqliteFileBackupSupported) ...[
+                _Tile(
+                  icon: Icons.folder_zip_rounded,
+                  title: 'Exportar backup do banco',
+                  subtitle: 'Arquivo .sqlite para salvar nos Arquivos ou na nuvem',
+                  onTap: () => _exportSqliteBackup(context, ref),
+                ),
+                _Tile(
+                  icon: Icons.restore_rounded,
+                  title: 'Restaurar backup do banco',
+                  subtitle: 'Substitui toda a coleção pelo arquivo .sqlite',
+                  onTap: () => _restoreSqliteBackup(context, ref),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
-          _GroupCard(
+          const _GroupCard(
             title: 'Comunidade',
             tiles: [
               _Tile(
@@ -78,13 +94,13 @@ class YouPage extends ConsumerWidget {
                 title: 'Como funciona',
                 onTap: () => _showHowItWorks(context),
               ),
-              _Tile(
+              const _Tile(
                 icon: Icons.coffee_rounded,
                 title: 'Apoie o Figus',
                 subtitle: 'Cafezinho via Pix (em breve)',
                 onTap: null,
               ),
-              _Tile(
+              const _Tile(
                 icon: Icons.code_rounded,
                 title: 'Versão',
                 subtitle: '0.1.0 alpha · open source',
@@ -95,6 +111,85 @@ class YouPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _exportSqliteBackup(BuildContext context, WidgetRef ref) async {
+    try {
+      await exportSqliteDatabase(ref.read(databaseProvider));
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Use “Salvar em Arquivos” ou envie para a nuvem. Guarde este arquivo para restaurar depois.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível exportar: $e')),
+      );
+    }
+  }
+
+  Future<void> _restoreSqliteBackup(BuildContext context, WidgetRef ref) async {
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (!context.mounted) return;
+    if (pick == null || pick.files.isEmpty) return;
+
+    final path = await resolveBackupPickPath(pick.files.first);
+    if (!context.mounted) return;
+    if (path == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível ler o arquivo (comum com iCloud). '
+            'Copie o backup para “Arquivos no iPhone” ou outra pasta local e tente de novo.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final valid = await fileLooksLikeSqliteDatabase(path);
+    if (!context.mounted) return;
+    if (!valid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Arquivo inválido. Escolha um backup .sqlite gerado pelo Figus.'),
+        ),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restaurar backup?'),
+        content: const Text(
+          'Toda a coleção e perfis neste aparelho serão substituídos pelo backup. '
+          'O app será reiniciado em seguida.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Restaurar')),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      await replaceSqliteDatabaseFromBackup(ref.read(databaseProvider), path);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Restauração falhou: $e')),
+      );
+    }
   }
 
   void _showHowItWorks(BuildContext context) {

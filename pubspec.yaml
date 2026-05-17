@@ -40,6 +40,7 @@ dependencies:
 
   # Share (WhatsApp + native share sheets — works on web + mobile)
   share_plus: ^10.0.2
+  restart_app: ^1.3.2
   cross_file: ^0.3.4+2
 
   # File picking for Figuritas PDF/image import
