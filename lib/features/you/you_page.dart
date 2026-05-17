@@ -133,7 +133,7 @@ class YouPage extends ConsumerWidget {
   }
 
   Future<void> _restoreSqliteBackup(BuildContext context, WidgetRef ref) async {
-    final pick = await FilePicker.platform.pickFiles(
+    final pick = await FilePicker.pickFiles(
       type: FileType.any,
       allowMultiple: false,
       withData: true,

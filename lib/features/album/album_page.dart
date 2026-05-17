@@ -235,9 +235,11 @@ class _FlagThumb extends StatelessWidget {
             )
           : CountryFlag.fromCountryCode(
               iso,
-              shape: const RoundedRectangle(6),
-              width: 36,
-              height: 26,
+              theme: const ImageTheme(
+                width: 36,
+                height: 26,
+                shape: RoundedRectangle(6),
+              ),
             ),
     );
   }

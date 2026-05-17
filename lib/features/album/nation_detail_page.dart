@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/country_codes.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/providers.dart';
-import '../../data/repos/album_repo.dart';
 import '../../domain/models/album_view_models.dart';
 import 'widgets/sticker_card.dart';
 
@@ -296,7 +295,10 @@ class _HeaderBlock extends StatelessWidget {
               if (iso != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
-                  child: CountryFlag.fromCountryCode(iso, width: 22, height: 16),
+                  child: CountryFlag.fromCountryCode(
+                    iso,
+                    theme: const ImageTheme(width: 22, height: 16),
+                  ),
                 ),
             ],
           ),
